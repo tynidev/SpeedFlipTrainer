@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "SpeedFlipTrainer.h"
 
-/* Plugin Settings Window code here
+// Plugin Settings Window code here
 std::string SpeedFlipTrainer::GetPluginName() {
 	return "SpeedFlipTrainer";
 }
@@ -16,7 +16,6 @@ void SpeedFlipTrainer::SetImGuiContext(uintptr_t ctx) {
 void SpeedFlipTrainer::RenderSettings() {
 	ImGui::TextUnformatted("SpeedFlipTrainer plugin settings");
 }
-*/
 
 /*
 // Do ImGui rendering here

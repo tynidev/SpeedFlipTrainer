@@ -8,3 +8,5 @@
 .vscode/settings.json
 *.vcxproj.filters
 *.vcxproj.user
+plugins/*
+build/*

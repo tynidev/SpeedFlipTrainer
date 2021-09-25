@@ -3,11 +3,62 @@
 
 #define M_PI 3.14159265358979323846
 
-BAKKESMOD_PLUGIN(SpeedFlipTrainer, "Plugin to help while training to perfect speedflip", plugin_version, PLUGINTYPE_CUSTOM_TRAINING)
+BAKKESMOD_PLUGIN(SpeedFlipTrainer, "Speedflip trainer", plugin_version, PLUGINTYPE_CUSTOM_TRAINING)
 
 std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
 
-float lastAngle = 0.0;
+int lastDodgeAngle = 0;
+float startTime = 0;
+bool loggedSupersonic = false;
+
+struct clock_time {
+	int hour_hand;
+	int min_hand;
+};
+
+int ComputeDodgeAngle(int previousAngle, DodgeComponentWrapper dodge)
+{
+	if (dodge.IsNull())
+		return previousAngle;
+
+	Vector dd = dodge.GetDodgeDirection();
+	if (dd.X == 0 && dd.Y == 0)
+		return previousAngle;
+
+	return (int)(atan2f(dd.Y, dd.X) * (180 / M_PI));
+}
+
+clock_time ComputeClockTime(int angle)
+{
+	if (angle < 0)
+	{
+		angle = 360 + angle;
+	}
+	clock_time time;
+
+	time.hour_hand = (int)(angle * (12.0 / 360.0));
+	time.min_hand = ((int)angle % (360 / 12)) * (60.0 / 30.0);
+
+	return time;
+}
+
+void HandleDodge(DodgeComponentWrapper dodge)
+{
+	if (dodge.IsNull())
+		return;
+
+	int dodgeAngle = ComputeDodgeAngle(lastDodgeAngle, dodge);
+
+	if (dodgeAngle == lastDodgeAngle)
+		return;
+
+	lastDodgeAngle = dodgeAngle;
+
+	clock_time time = ComputeClockTime(dodgeAngle);
+
+	LOG("Dodge Degree Angle: {0:#03d}", (int)dodgeAngle);
+	LOG("Dodge Clock Angle: {0:#02d}:{1:#02d}", time.hour_hand, time.min_hand);
+}
 
 void SpeedFlipTrainer::onLoad()
 {
@@ -15,67 +66,33 @@ void SpeedFlipTrainer::onLoad()
 	LOG("Speedflip Plugin loaded!");
 
 	gameWrapper->HookEventWithCaller<CarWrapper>("Function TAGame.Car_TA.SetVehicleInput",
-		[this](CarWrapper caller, void* params, std::string eventname) {
+		[this](CarWrapper car, void* params, std::string eventname) {
+			if (!gameWrapper->IsInGame() || car.IsNull())
+				return;
 
-		DodgeComponentWrapper dodge = caller.GetDodgeComponent();
-		if (dodge.IsNull())
-			return;
+			if (car.IsDodging())
+				HandleDodge(car.GetDodgeComponent());
 
-		Vector dd = dodge.GetDodgeDirection();
-		if (dd.X == 0 && dd.Y == 0)
-			return;
-
-		float rads = atan2f(dd.Y, dd.X);
-		float deg = rads * (180 / M_PI);
-
-		if (lastAngle != deg)
-		{
-			lastAngle = deg;
-
-			float degF = deg;
-			if (degF < 0)
+			if (car.GetbSuperSonic() && !loggedSupersonic)
 			{
-				degF = 360 + degF;
+				loggedSupersonic = true;
+				LOG("Time to supersonic: {0}s", startTime - gameWrapper->GetCurrentGameState().GetGameTimeRemaining());
 			}
-
-			int hour = (int)(degF * (12.0/360.0));
-			int min = ((int)degF % (360/12)) * (60.0/30);
-
-			LOG("Dodge Deg Angle: {0:#03d}", (int)deg);
-			LOG("Dodge Clock Angle: {0:#02d}:{1:#02d}", hour, min);
 		}
+	);
+
+	gameWrapper->HookEventWithCaller<CarWrapper>("Function TAGame.Car_TA.EventHitBall",
+		[this](CarWrapper caller, void* params, std::string eventname) {
+		
+		LOG("Time to hit: {0}s", startTime - gameWrapper->GetCurrentGameState().GetGameTimeRemaining());
 	});
-	
-	//cvarManager->registerNotifier("my_aweseome_notifier", [&](std::vector<std::string> args) {
-	//	cvarManager->log("Hello notifier!");
-	//}, "", 0);
 
-	//auto cvar = cvarManager->registerCvar("template_cvar", "hello-cvar", "just a example of a cvar");
-	//auto cvar2 = cvarManager->registerCvar("template_cvar2", "0", "just a example of a cvar with more settings", true, true, -10, true, 10 );
-
-	//cvar.addOnValueChanged([this](std::string cvarName, CVarWrapper newCvar) {
-	//	cvarManager->log("the cvar with name: " + cvarName + " changed");
-	//	cvarManager->log("the new value is:" + newCvar.getStringValue());
-	//});
-
-	//cvar2.addOnValueChanged(std::bind(&SpeedFlipTrainer::YourPluginMethod, this, _1, _2));
-
-	// enabled decleared in the header
-	//enabled = std::make_shared<bool>(false);
-	//cvarManager->registerCvar("TEMPLATE_Enabled", "0", "Enable the TEMPLATE plugin", true, true, 0, true, 1).bindTo(enabled);
-
-	//cvarManager->registerNotifier("NOTIFIER", [this](std::vector<std::string> params){FUNCTION();}, "DESCRIPTION", PERMISSION_ALL);
-	//cvarManager->registerCvar("CVAR", "DEFAULTVALUE", "DESCRIPTION", true, true, MINVAL, true, MAXVAL);//.bindTo(CVARVARIABLE);
-	//gameWrapper->HookEvent("FUNCTIONNAME", std::bind(&TEMPLATE::FUNCTION, this));
-	//gameWrapper->HookEventWithCallerPost<ActorWrapper>("FUNCTIONNAME", std::bind(&SpeedFlipTrainer::FUNCTION, this, _1, _2, _3));
-	//gameWrapper->RegisterDrawable(bind(&TEMPLATE::Render, this, std::placeholders::_1));
-
-
-	//gameWrapper->HookEvent("Function TAGame.Ball_TA.Explode", [this](std::string eventName) {
-	//	cvarManager->log("Your hook got called and the ball went POOF");
-	//});
-	// You could also use std::bind here
-	//gameWrapper->HookEvent("Function TAGame.Ball_TA.Explode", std::bind(&SpeedFlipTrainer::YourPluginMethod, this);
+	gameWrapper->HookEventPost("Function Engine.Controller.Restart", 
+		[this](std::string eventName) {
+		startTime = gameWrapper->GetCurrentGameState().GetGameTimeRemaining();
+		lastDodgeAngle = 0;
+		loggedSupersonic = false;
+	});
 }
 
 void SpeedFlipTrainer::onUnload()
