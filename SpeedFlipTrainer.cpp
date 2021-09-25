@@ -10,6 +10,7 @@ std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
 int lastDodgeAngle = 0;
 float startTime = 0;
 bool loggedSupersonic = false;
+bool firstJump = false;
 
 struct clock_time {
 	int hour_hand;
@@ -70,6 +71,12 @@ void SpeedFlipTrainer::onLoad()
 			if (!gameWrapper->IsInGame() || car.IsNull())
 				return;
 
+			if (!firstJump && car.GetbJumped())
+			{
+				firstJump = true;
+				LOG("Time to first jump: {0}s", startTime - gameWrapper->GetCurrentGameState().GetGameTimeRemaining());
+			}
+
 			if (car.IsDodging())
 				HandleDodge(car.GetDodgeComponent());
 
@@ -92,6 +99,7 @@ void SpeedFlipTrainer::onLoad()
 		startTime = gameWrapper->GetCurrentGameState().GetGameTimeRemaining();
 		lastDodgeAngle = 0;
 		loggedSupersonic = false;
+		firstJump = false;
 	});
 }
 
