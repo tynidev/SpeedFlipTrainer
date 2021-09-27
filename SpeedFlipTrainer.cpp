@@ -8,9 +8,16 @@ BAKKESMOD_PLUGIN(SpeedFlipTrainer, "Speedflip trainer", plugin_version, PLUGINTY
 std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
 
 int lastDodgeAngle = 0;
-float startTime = 0;
-bool loggedSupersonic = false;
+
+float initialTime = 0;
+float firstJumpTime = 0;
+float secondJumpTime = 0;
+
 bool firstJump = false;
+bool secondJump = false;
+bool pressDown = false;
+bool dodged = false;
+bool supersonic = false;
 
 struct clock_time {
 	int hour_hand;
@@ -38,7 +45,7 @@ clock_time ComputeClockTime(int angle)
 	clock_time time;
 
 	time.hour_hand = (int)(angle * (12.0 / 360.0));
-	time.min_hand = ((int)angle % (360 / 12)) * (60.0 / 30.0);
+	time.min_hand = (angle % (360 / 12)) * (60 / 30);
 
 	return time;
 }
@@ -57,8 +64,7 @@ void HandleDodge(DodgeComponentWrapper dodge)
 
 	clock_time time = ComputeClockTime(dodgeAngle);
 
-	LOG("Dodge Degree Angle: {0:#03d}", (int)dodgeAngle);
-	LOG("Dodge Clock Angle: {0:#02d}:{1:#02d}", time.hour_hand, time.min_hand);
+	LOG("Dodge Angle: {0:#03d} deg or {1:#02d}:{2:#02d} PM", dodgeAngle, time.hour_hand, time.min_hand);
 }
 
 void SpeedFlipTrainer::onLoad()
@@ -74,35 +80,58 @@ void SpeedFlipTrainer::onLoad()
 			if (!firstJump && car.GetbJumped())
 			{
 				firstJump = true;
-				LOG("Time to first jump: {0}s", startTime - gameWrapper->GetCurrentGameState().GetGameTimeRemaining());
+				firstJumpTime = gameWrapper->GetCurrentGameState().GetGameTimeRemaining();
+				LOG("Time to first jump: {0}s", initialTime - firstJumpTime);
 			}
 
-			if (car.IsDodging())
-				HandleDodge(car.GetDodgeComponent());
-
-			if (car.GetbSuperSonic() && !loggedSupersonic)
+			if (!secondJump && car.GetbDoubleJumped())
 			{
-				loggedSupersonic = true;
-				LOG("Time to supersonic: {0}s", startTime - gameWrapper->GetCurrentGameState().GetGameTimeRemaining());
+				secondJump = true;
+				secondJumpTime = gameWrapper->GetCurrentGameState().GetGameTimeRemaining();
+				LOG("Time to second jump: {0}s", firstJumpTime - gameWrapper->GetCurrentGameState().GetGameTimeRemaining());
+			}
+
+			ControllerInput input = car.GetInput();
+			if (secondJump && !pressDown && input.Pitch > 0.8)
+			{
+				pressDown = true;
+				LOG("Time to press down: {0}s", secondJumpTime - gameWrapper->GetCurrentGameState().GetGameTimeRemaining());
+			}
+
+			if (!dodged && car.IsDodging())
+			{
+				dodged = true;
+				HandleDodge(car.GetDodgeComponent());
+			}
+
+			if (!supersonic && car.GetbSuperSonic())
+			{
+				supersonic = true;
+				LOG("Time to supersonic: {0}s", initialTime - gameWrapper->GetCurrentGameState().GetGameTimeRemaining());
 			}
 		}
 	);
 
 	gameWrapper->HookEventWithCaller<CarWrapper>("Function TAGame.Car_TA.EventHitBall",
 		[this](CarWrapper caller, void* params, std::string eventname) {
-		
-		LOG("Time to hit: {0}s", startTime - gameWrapper->GetCurrentGameState().GetGameTimeRemaining());
+		LOG("Time to hit: {0}s", initialTime - gameWrapper->GetCurrentGameState().GetGameTimeRemaining());
 	});
 
 	gameWrapper->HookEventPost("Function Engine.Controller.Restart", 
 		[this](std::string eventName) {
-		startTime = gameWrapper->GetCurrentGameState().GetGameTimeRemaining();
+		initialTime = gameWrapper->GetCurrentGameState().GetGameTimeRemaining();
 		lastDodgeAngle = 0;
-		loggedSupersonic = false;
+		supersonic = false;
 		firstJump = false;
+		secondJump = false;
+		dodged = false;	
+		pressDown = false;
+		firstJumpTime = 0;
+		secondJumpTime = 0;
 	});
 }
 
 void SpeedFlipTrainer::onUnload()
 {
 }
+
