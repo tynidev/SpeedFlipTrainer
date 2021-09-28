@@ -50,16 +50,18 @@ clock_time ComputeClockTime(int angle)
 	return time;
 }
 
-void HandleDodge(DodgeComponentWrapper dodge)
+double HandleDodge(DodgeComponentWrapper dodge)
 {
 	if (dodge.IsNull())
-		return;
+		return 0;
 
 	int dodgeAngle = ComputeDodgeAngle(dodge);
 
 	clock_time time = ComputeClockTime(dodgeAngle);
 
 	LOG("Dodge Angle: {0:#03d} deg or {1:#02d}:{2:#02d} PM", dodgeAngle, time.hour_hand, time.min_hand);
+
+	return dodgeAngle;
 }
 
 void Measure(CarWrapper car, std::shared_ptr<GameWrapper> gameWrapper, float timeLeft)
@@ -93,7 +95,12 @@ void Measure(CarWrapper car, std::shared_ptr<GameWrapper> gameWrapper, float tim
 	if (!dodged && car.IsDodging())
 	{
 		dodged = true;
-		HandleDodge(car.GetDodgeComponent());
+		float angle = HandleDodge(car.GetDodgeComponent());
+		//if (abs(angle) > 40)
+		//{
+		//	LOG("RESET");
+		//	gameWrapper->ExecuteUnrealCommand("Function TAGame.GameInfo_GameEditor_TA.PlayerResetTraining 1");
+		//}
 	}
 
 	if (!supersonic && car.GetbSuperSonic())
@@ -109,16 +116,16 @@ void Perform(std::shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci, int 
 	ci->ActivateBoost = 1;
 	ci->HoldingBoost = 1;
 
-	int j1 = 60;
+	int j1 = 59;
 	int j1Time = 11;
 	int timeBeforeAdjust = 59;
 	int adjustTime = 16;
 
 	if (tick <= j1)
 	{
-		ci->Steer = 0.05;
-		ci->Yaw = 0.05;
-		ci->DodgeStrafe = 0.05;
+		ci->Steer = 0.01;
+		ci->Yaw = 0.01;
+		ci->DodgeStrafe = 0.01;
 	}
 	else if (tick <= j1 + j1Time)
 	{
@@ -142,12 +149,12 @@ void Perform(std::shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci, int 
 		ci->Jump = 1;
 		ci->Jumped = 1;
 		
-		ci->Steer = -0.45;
-		ci->Yaw = -0.45;
-		ci->DodgeStrafe = -0.45;
+		ci->Steer = -0.3;
+		ci->Yaw = -0.3;
+		ci->DodgeStrafe = -0.3;
 
-		ci->Pitch = -0.85;
-		ci->DodgeForward = 0.85;
+		ci->Pitch = -0.70;
+		ci->DodgeForward = 0.70;
 	}
 	else if (tick <= j1 + j1Time + 1 + 1 + timeBeforeAdjust)
 	{
@@ -195,13 +202,14 @@ void Perform(std::shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci, int 
 
 void SpeedFlipTrainer::onLoad()
 {
+	if (!gameWrapper->IsInGame() || !gameWrapper->IsInCustomTraining())
+		return;
+
 	_globalCvarManager = cvarManager;
 	LOG("Speedflip Plugin loaded!");
 
 	gameWrapper->HookEventWithCaller<CarWrapper>("Function TAGame.Car_TA.SetVehicleInput",
 		[this](CarWrapper cw, void* params, std::string eventname) {
-			if (!gameWrapper->IsInGame() || !gameWrapper->IsInCustomTraining())
-				return;
 
 			CarWrapper car = gameWrapper->GetLocalCar();
 			if (car.IsNull() || !car.GetbIsMoving())
@@ -225,12 +233,19 @@ void SpeedFlipTrainer::onLoad()
 		float timeLeft = gameWrapper->GetCurrentGameState().GetGameTimeRemaining();
 		if (timeLeft <= 0)
 		{
-			LOG("Phantom touch!");
+			LOG("Phantom touch! {0} ticks", ticks);
 		}
 		else if (timeLeft < 2.0)
 		{
-			LOG("HIT BALL!!!: {0}s", initialTime - timeLeft);
+			LOG("HIT BALL!!");
+			LOG("Time: {0}s", initialTime - timeLeft);
+			LOG("Ticks: {0}", ticks);
+			LOG("Remaining Ticks {0}", 241 - ticks);
 		}
+	});
+
+	gameWrapper->HookEvent("Function TAGame.Ball_TA.Explode", [this](std::string eventName) {
+		LOG("Ticks {0}", ticks);
 	});
 
 	gameWrapper->HookEventPost("Function Engine.Controller.Restart", 
