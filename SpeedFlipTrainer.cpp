@@ -409,66 +409,121 @@ void SpeedFlipTrainer::Render(CanvasWrapper canvas)
 	RenderFlipCancelMeter(canvas, SCREENWIDTH, SCREENHEIGHT, RELWIDTH, RELHEIGHT);
 }
 
-void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWidth, float screenHeight, float relativeWidth, float relativeHeight)
+struct Color
 {
-	float halfHeight = screenHeight / 2.f;
-	float halfWidth = screenWidth / 2.f;
+	char red, green, blue = 0;
+	float opacity = 0;
+};
 
-	float heightPerc = 50 / 100.f;
-	float widthPerc = 60 / 100.f;
+struct Line : Color
+{
+	int width = 2;
+};
 
-	float boxWidth = 60.f * widthPerc;
-	float boxHeight = screenHeight * heightPerc;
+struct MeterRange : Color
+{
+	int low, high = 0;
+};
 
-	int totalUnits = *jumpHigh - *jumpLow;
-	float unitWidth = boxHeight / totalUnits;
+struct MeterMarking : Line
+{
+	int value = 0;
+};
 
-	Vector2 startPos = { (int)(halfWidth + (halfWidth * widthPerc) - 0.75 * boxWidth), (int)(halfHeight - halfHeight * heightPerc) };
-	Vector2 boxSize = { boxWidth, boxHeight };
+Vector2 RenderMeter(CanvasWrapper canvas, Vector2 startPos, Vector2 reqBoxSize, Color base, Line border, int totalUnits, std::list<MeterRange> ranges, std::list<MeterMarking> markings, bool vertical)
+{
+	int unitWidth = vertical ? reqBoxSize.Y / totalUnits : reqBoxSize.X / totalUnits;
+	Vector2 boxSize = vertical ? Vector2{ reqBoxSize.X, unitWidth * totalUnits } : Vector2{ unitWidth * totalUnits, reqBoxSize.Y };
 
-	//draw base color
-	float opacity = 1.0;
-	canvas.SetColor(255, 255, 255, (char)(100 * opacity));
+	// Draw base meter base color
+	canvas.SetColor(base.red, base.green, base.blue, (char)(100 * base.opacity));
 	canvas.SetPosition(startPos);
 	canvas.FillBox(boxSize);
 
-	//draw outline
-	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.SetPosition(startPos.minus(Vector2{ 1,1 }));
-	canvas.DrawBox(boxSize.minus(Vector2{ -2,-2 }));
+	// Draw meter ranges
+	for (const MeterRange& range : ranges)
+	{
+		canvas.SetColor(range.red, range.green, range.blue, (char)(255 * range.opacity));
 
-	auto bestBot = totalUnits / 2 - 10;
-	auto bestTop = totalUnits / 2 + 10;
-	auto goodBot = totalUnits / 2 - 15;
-	auto goodTop = totalUnits / 2 + 15;
+		auto l = range.low;
+		if (l < 0)
+			l = 0;
+		if (l > totalUnits)
+			l = totalUnits;
 
-	//draw label
-	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.SetPosition(Vector2{ startPos.X - 15, (int)(startPos.Y + boxHeight + 10) });
-	canvas.DrawString("First Jump");
-	canvas.SetPosition(Vector2{ startPos.X - 4, (int)(startPos.Y + boxHeight + 10 + 15) });
-	auto ms = (int)(firstJumpTick * 1.0 / 120.0 * 1000.0 / 1.0);
-	canvas.DrawString(to_string(ms) + " ms");
+		auto h = range.high;
+		if (h < 0)
+			h = 0;
+		if (h > totalUnits)
+			h = totalUnits;
 
-	canvas.SetColor(255, 255, 50, (char)(255 * 0.5)); // yellow
-	canvas.SetPosition(Vector2{ startPos.X + 1, (int)(startPos.Y + boxHeight - (goodTop * unitWidth)) });
-	canvas.FillBox(Vector2{ (int)boxWidth - 1, (int)((goodTop -goodBot) * unitWidth) });
+		if (l > h)
+			l = h;
 
-	canvas.SetColor(50, 255, 50, (char)(255 * 0.5)); // green
-	canvas.SetPosition(Vector2{ startPos.X + 1, (int)(startPos.Y + boxHeight - (bestTop * unitWidth)) });
-	canvas.FillBox(Vector2{ (int)boxWidth - 1, (int)((bestTop - bestBot) * unitWidth) });
+		if (vertical)
+		{
+			auto position = Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y - (h * unitWidth)) };
+			auto size = Vector2{ boxSize.X, (int)((h - l) * unitWidth) };
+			canvas.SetPosition(position);
+			canvas.FillBox(size);
+		}
+		else
+		{
+			if (l != 0)
+				l -= 1;
+			if (h != totalUnits)
+				h -= 1;
+			auto position = Vector2{ (int)(startPos.X + (l * unitWidth)), startPos.Y };
+			auto size = Vector2{ (int)((h - l) * unitWidth), boxSize.Y };
+			canvas.SetPosition(position);
+			canvas.FillBox(size);
+		}
+	}
 
-	//draw target guids
-	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.DrawLine(Vector2{ startPos.X, (int)(startPos.Y + boxHeight - ((int)(totalUnits / 2 - 10) * unitWidth)) }, Vector2{ startPos.X + (int)boxWidth + 1, (int)(startPos.Y + boxHeight - ((int)(totalUnits / 2 - 10) * unitWidth)) }, 3);
-	canvas.DrawLine(Vector2{ startPos.X, (int)(startPos.Y + boxHeight - ((int)(totalUnits / 2 + 10) * unitWidth)) }, Vector2{ startPos.X + (int)boxWidth + 1, (int)(startPos.Y + boxHeight - ((int)(totalUnits / 2 + 10) * unitWidth)) }, 3);
+	// Draw meter markings
+	for (const MeterMarking& marking : markings)
+	{
+		canvas.SetColor(marking.red, marking.green, marking.blue, (char)(255 * marking.opacity));
 
-	canvas.DrawLine(Vector2{ startPos.X, (int)(startPos.Y + boxHeight - ((int)(totalUnits / 2 - 15) * unitWidth)) }, Vector2{ startPos.X + (int)boxWidth + 1, (int)(startPos.Y + boxHeight - ((int)(totalUnits / 2 - 15) * unitWidth)) }, 3);
-	canvas.DrawLine(Vector2{ startPos.X, (int)(startPos.Y + boxHeight - ((int)(totalUnits / 2 + 15) * unitWidth)) }, Vector2{ startPos.X + (int)boxWidth + 1, (int)(startPos.Y + boxHeight - ((int)(totalUnits / 2 + 15) * unitWidth)) }, 3);
+		auto value = marking.value - 1;
+		if (value < 0)
+			value = 0;
+		if (value > totalUnits)
+			value = totalUnits;
 
-	// draw first jump time
-	auto ticks = firstJumpTick - ((*jumpHigh - (totalUnits/2)) - totalUnits / 2);
+		if (vertical)
+		{
+			float y = startPos.Y + boxSize.Y - ((value + 1) * unitWidth);
+			auto begin = Vector2{ startPos.X,             (int)y };
+			auto end =   Vector2{ startPos.X + boxSize.X, (int)y };
+			canvas.DrawLine(begin, end, marking.width);
+		}
+		else
+		{
+			float x = startPos.X + (value * unitWidth) + (marking.width / 2);
+			float y = startPos.Y - (marking.width / 2);
+			auto begin = Vector2{ (int)x, (int)y             };
+			auto end =   Vector2{ (int)x, (int)(y + boxSize.Y) };
+			canvas.DrawLine(begin, end, marking.width);
+		}
+	}
 
+	// Draw meter border
+	if (border.width > 0)
+	{
+		canvas.SetColor(border.red, border.green, border.blue, (char)(255 * border.opacity));
+		canvas.SetPosition(startPos.minus(Vector2{ border.width / 2, border.width / 2 }));
+		canvas.DrawBox(boxSize.minus(Vector2{ border.width * -1, border.width * -1 }));
+	}
+
+	return boxSize;
+}
+
+void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWidth, float screenHeight, float relativeWidth, float relativeHeight)
+{
+	int totalUnits = *jumpHigh - *jumpLow;
+	int halfMark = totalUnits / 2;
+	int ticks = firstJumpTick - ((*jumpHigh - (halfMark)) - halfMark);
 	if (ticks < 0)
 	{
 		ticks = 0;
@@ -478,163 +533,151 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 		ticks = totalUnits;
 	}
 
-	canvas.SetColor(0, 0, 0, (char)(255 * 0.8));
-	canvas.SetPosition(Vector2{ startPos.X + 1, (int)(startPos.Y + boxHeight - ((ticks + 1) * unitWidth)) });
-	canvas.DrawLine(Vector2{ startPos.X + 1, (int)(startPos.Y + boxHeight - ((int)(ticks + 1) * unitWidth)) }, Vector2{ startPos.X + (int)boxWidth, (int)(startPos.Y + boxHeight - ((int)(ticks + 1) * unitWidth)) }, unitWidth);
+	float opacity = 1.0;
+	Vector2 reqSize = Vector2{ (int)(screenWidth * 2 / 100.f), (int)(screenHeight * 56 / 100.f) };
+	Vector2 startPos = Vector2{ (int)(screenWidth * 75 / 100.f) + 2 * reqSize.X, (int)(screenHeight * 25 / 100.f) };
+	
+	struct Color baseColor = { (char)255, (char)255, (char)255, opacity };
+	struct Line border = { (char)255, (char)255, (char)255, opacity, 2 };
+
+	std::list<MeterRange> ranges;
+	float go = 1, ro = 1, yo = 1;
+	if (ticks >= halfMark - 10 && ticks <= halfMark + 10)
+	{
+		ranges.push_back({ (char)50,(char)255, (char)50, go, (int)(halfMark - 10), (int)(halfMark + 10) });
+	}
+	else if (ticks >= halfMark - 15 && ticks <= halfMark + 15)
+	{
+		ranges.push_back({ (char)255, (char)255, (char)50, yo, (int)(halfMark - 15), (int)(halfMark - 15) });
+	}
+	else
+	{
+		ranges.push_back({ (char)255,(char)50, (char)50, ro, 0, totalUnits });
+	}
+
+	std::list<MeterMarking> markings;
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, (int)(halfMark - 15) });
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, (int)(halfMark - 10) });
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, (int)(halfMark + 10) });
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, (int)(halfMark + 15) });
+	markings.push_back({ (char)0, (char)0, (char)0, 0.6, (int)reqSize.Y/totalUnits, (int)ticks });
+
+	auto boxSize = RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, true);
+
+	//draw label
+	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
+	canvas.SetPosition(Vector2{ startPos.X - 15, (int)(startPos.Y + boxSize.Y + 10) });
+	canvas.DrawString("First Jump");
+	canvas.SetPosition(Vector2{ startPos.X - 4, (int)(startPos.Y + boxSize.Y + 10 + 15) });
+	auto ms = (int)(firstJumpTick * 1.0 / 120.0 * 1000.0 / 1.0);
+	canvas.DrawString(to_string(ms) + " ms");
 }
 
 void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, float screenWidth, float screenHeight, float relativeWidth, float relativeHeight)
 {
-	float halfHeight = screenHeight / 2.f;
-	float halfWidth = screenWidth / 2.f;
-
-	float heightPerc = 50 / 100.f;
-	float widthPerc = 60 / 100.f;
-
-	float boxWidth = 60.f * widthPerc;
-	float boxHeight = screenHeight * heightPerc;
-	
-	int totalUnits = *flipCancelThreshold;
-	float unitWidth = boxHeight / totalUnits;
-
-	Vector2 startPos = { (int)(halfWidth + (halfWidth * widthPerc) - 3 * boxWidth), (int)(halfHeight - halfHeight * heightPerc) };
-	Vector2 boxSize = { boxWidth, boxHeight };
-
-	//draw base color
 	float opacity = 1.0;
-	canvas.SetColor(255, 255, 255, (char)(100 * opacity));
-	canvas.SetPosition(startPos);
-	canvas.FillBox(boxSize);
+	Vector2 reqSize = Vector2{ (int)(screenWidth * 2 / 100.f), (int)(screenHeight * 55 / 100.f) };
+	Vector2 startPos = Vector2{ (int)(screenWidth * 75 / 100.f), (int)(screenHeight * 25 / 100.f) };
 
-	//draw outline
-	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.SetPosition(startPos.minus(Vector2{ 1,1 }));
-	canvas.DrawBox(boxSize.minus(Vector2{ -2,-2 }));
+	int totalUnits = *flipCancelThreshold;
+	int unitWidth = reqSize.Y / totalUnits;
+
+	struct Color baseColor = { (char)255, (char)255, (char)255, opacity };
+	struct Line border = { (char)255, (char)255, (char)255, opacity, 2 };
+
+	// flip cancel time range
+	std::list<MeterRange> ranges;
+	auto ticks = flipCancelTicks > totalUnits ? totalUnits : flipCancelTicks;
+	struct Color meterColor;
+	if (ticks <= (int)(totalUnits * 0.6f))
+		meterColor = { (char)50, (char)255, (char)50, 0.7 }; // green
+	else if (ticks <= (int)(totalUnits * 0.8f))
+		meterColor = { (char)255, (char)255, (char)50, 0.7 }; // yellow
+	else
+		meterColor = { (char)255, (char)50, (char)50, 0.7 }; // red
+	ranges.push_back({ meterColor.red, meterColor.green, meterColor.blue, 1, 0, ticks });
+
+	std::list<MeterMarking> markings;
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, ((int)(totalUnits * 0.6f)) });
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, ((int)(totalUnits * 0.8f)) });
+	//markings.push_back({ (char)0, (char)0, (char)0, 0.6, 10, ticks });
+
+	auto boxSize = RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, true);
 
 	//draw label
 	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.SetPosition(Vector2{startPos.X - 15, (int)(startPos.Y + boxHeight + 10)});
+	canvas.SetPosition(Vector2{startPos.X - 15, (int)(startPos.Y + boxSize.Y + 10)});
 	canvas.DrawString("Flip Cancel");
-	canvas.SetPosition(Vector2{ startPos.X - 4, (int)(startPos.Y + boxHeight + 10 + 15) });
+	canvas.SetPosition(Vector2{ startPos.X - 4, (int)(startPos.Y + boxSize.Y + 10 + 15) });
 	auto ms = (int)(flipCancelTicks * 1.0 / 120.0 * 1000.0 / 1.0);
 	canvas.DrawString(to_string(ms) + " ms");
-
-	int threshold = (totalUnits * 0.9f);
-
-	// draw flip cancel time
-	auto ticks = flipCancelTicks > totalUnits ? totalUnits : flipCancelTicks;
-	if(ticks <= (int)(totalUnits * 0.6f))
-		canvas.SetColor(50, 255, 50, (char)(255 * 0.7)); // green
-	else if (ticks <= (int)(totalUnits * 0.8f))
-		canvas.SetColor(255, 255, 50, (char)(255 * 0.7)); // yellow
-	else
-		canvas.SetColor(255, 50, 50, (char)(255 * 0.7)); // red
-	canvas.SetPosition(Vector2{ startPos.X + 1, (int)(startPos.Y + boxHeight - (ticks * unitWidth)) });
-	canvas.FillBox(Vector2{ boxSize.X - 2,  (int)(ticks * unitWidth) });
-
-	//draw optimal cancel threshold
-	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.DrawLine(Vector2{ startPos.X, (int)(startPos.Y + boxHeight - ((int)(totalUnits * 0.6f) * unitWidth)) }, Vector2{ startPos.X + (int)boxWidth + 1, (int)(startPos.Y + boxHeight - ((int)(totalUnits * 0.6f) * unitWidth)) }, 3);
-	canvas.DrawLine(Vector2{ startPos.X, (int)(startPos.Y + boxHeight - ((int)(totalUnits * 0.8f) * unitWidth)) }, Vector2{ startPos.X + (int)boxWidth + 1, (int)(startPos.Y + boxHeight - ((int)(totalUnits * 0.8f) * unitWidth)) }, 3);
 }
 
 void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth, float screenHeight, float relativeWidth, float relativeHeight)
 {
-	float halfHeight = screenHeight / 2.f;
-	float halfWidth = screenWidth / 2.f;
+	// Cap angle at 90
+	int angle = dodgeAngle;
+	if (angle > 90) angle = 90;
+	if (angle < -90) angle = -90;
 
-	float heightPerc = 90 / 100.f;
-	float widthPerc = 60 / 100.f;
-
-	float boxHeight = 40.f * relativeHeight;
-
-	Vector2 startPosition = { (int)(halfWidth - halfWidth * widthPerc), (int)(screenHeight * heightPerc) };
-	Vector2 boxSize = { (int)(screenWidth * widthPerc), boxHeight };
-
-	//draw base color
 	float opacity = 1.0;
-	canvas.SetColor(255, 255, 255, (char)(100 * opacity));
-	canvas.SetPosition(startPosition);
-	canvas.FillBox(boxSize);
+	Vector2 reqSize = Vector2{ (int)(screenWidth * 66 / 100.f), (int)(screenHeight * 4 / 100.f) };
+	Vector2 startPos = Vector2{ (int)(screenWidth * 17 / 100.f), (int)(screenHeight * 90 / 100.f) };
+
+	int totalUnits = 180;
+	int unitWidth = reqSize.X / totalUnits;
+
+	struct Color baseColor = { (char)255, (char)255, (char)255, opacity };
+	struct Line border = { (char)255, (char)255, (char)255, opacity, 2 };
+
+	std::list<MeterRange> ranges;
+	int compareAngle = angle < 0 ? *optimalLeftAngle : *optimalRightAngle;
+	float go = 1, ro = 1, yo = 1;
+	if (angle >= compareAngle - 7 && angle <= compareAngle + 7)
+	{
+		ranges.push_back({ (char)50, (char)255, (char)50, go, 90 + *optimalLeftAngle - 7, 90 + *optimalLeftAngle + 7 });
+		ranges.push_back({ (char)50, (char)255, (char)50, go, 90 + *optimalRightAngle - 7, 90 + *optimalRightAngle + 7 });
+	}
+	else if (angle >= compareAngle - 12 && angle <= compareAngle + 12)
+	{
+		ranges.push_back({ (char)255, (char)255, (char)50, yo, 90 + *optimalLeftAngle - 12, 90 + *optimalLeftAngle + 12 });
+		ranges.push_back({ (char)255, (char)255, (char)50, yo, 90 + *optimalRightAngle - 12, 90 + *optimalRightAngle + 12 });
+	}
+	else
+	{
+		ranges.push_back({ (char)255,(char)50, (char)50, ro, 0, totalUnits });
+	}
+
+	std::list<MeterMarking> markings;
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, 90 + *optimalLeftAngle + 7});
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, 90 + *optimalLeftAngle + 12});
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, 90 + *optimalLeftAngle - 7 });
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, 90 + *optimalLeftAngle - 12 });
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, 90 + *optimalRightAngle + 7 });
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, 90 + *optimalRightAngle + 12 });
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, 90 + *optimalRightAngle - 7 });
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, 90 + *optimalRightAngle - 12 });
+	markings.push_back({ (char)0, (char)0, (char)0, 0.6, unitWidth, 90 + angle });
+
+	auto boxSize = RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, false);
 
 	//draw label
 	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.SetPosition(Vector2{ startPosition.X + boxSize.X + 5, startPosition.Y + 10 });
+	canvas.SetPosition(Vector2{ startPos.X + boxSize.X + 5, startPos.Y + 10 });
 	canvas.DrawString("Dodge Angle");
 
 	//draw angle
-	canvas.SetPosition(Vector2{ startPosition.X + boxSize.X + 5, startPosition.Y + 25 });
+	canvas.SetPosition(Vector2{ startPos.X + boxSize.X + 5, startPos.Y + 25 });
 	canvas.DrawString(to_string(dodgeAngle) + " DEG");
 
 	//draw time to ball
 	if (consecutiveHits >= 0)
 	{
 		canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-		canvas.SetPosition(Vector2{ startPosition.X + (int)(boxSize.X/2) - 75, startPosition.Y - 25 });
+		canvas.SetPosition(Vector2{ startPos.X + (int)(boxSize.X/2) - 75, startPos.Y - 25 });
 
 		auto ms = timeToBallTicks * 1.0 / 120.0;
 		string msg = fmt::format("Time to ball: {0:.4f}s", ms);
 		canvas.DrawString(msg, 1, 1);
 	}
-
-	//draw outline
-	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.SetPosition(startPosition.minus(Vector2{ 1,1 }));
-	canvas.DrawBox(boxSize.minus(Vector2{ -2,-2 }));
-
-	//draw supersonic thresholds
-	float unitWidth = (float)boxSize.X / 180.0;
-
-	float mid = startPosition.X + (float)boxSize.X * 0.5;
-
-	// Fill in ranges
-	float pos = mid + (int)(*optimalRightAngle * unitWidth);
-	float neg = mid + (int)(*optimalLeftAngle * unitWidth);
-
-	// neg ranges
-	canvas.SetColor(255, 255, 50, (char)(255 * 0.5)); // yellow
-	canvas.SetPosition(Vector2{ (int)(neg - (13 * unitWidth)), startPosition.Y + 1 });
-	canvas.FillBox(Vector2{ (int)(25 * unitWidth), boxSize.Y - 2 });
-
-	canvas.SetColor(50, 255, 50, (char)(255 * 0.5));
-	canvas.SetPosition(Vector2{ (int)(neg - (7 * unitWidth)), startPosition.Y + 1 });
-	canvas.FillBox(Vector2{ (int)(13 * unitWidth), boxSize.Y - 2 });
-
-	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.DrawLine(Vector2{ (int)(mid + ((*optimalLeftAngle - 7) * unitWidth) - (3 / 2)) , startPosition.Y }, Vector2{ (int)(mid + ((*optimalLeftAngle - 7) * unitWidth) - (3 / 2)), startPosition.Y + (int)boxHeight }, 3);
-	canvas.DrawLine(Vector2{ (int)(mid + ((*optimalLeftAngle + 7) * unitWidth) - (3 / 2) - unitWidth) , startPosition.Y }, Vector2{ (int)(mid + ((*optimalLeftAngle + 7) * unitWidth) - (3 / 2) - unitWidth), startPosition.Y + (int)boxHeight }, 3);
-	canvas.DrawLine(Vector2{ (int)(mid + ((*optimalLeftAngle - 12) * unitWidth) - (3 / 2) - unitWidth) , startPosition.Y }, Vector2{ (int)(mid + ((*optimalLeftAngle - 12) * unitWidth) - (3 / 2) - unitWidth), startPosition.Y + (int)boxHeight }, 3);
-	canvas.DrawLine(Vector2{ (int)(mid + ((*optimalLeftAngle + 12) * unitWidth) - (3 / 2)) , startPosition.Y }, Vector2{ (int)(mid + ((*optimalLeftAngle + 12) * unitWidth) - (3 / 2)), startPosition.Y + (int)boxHeight }, 3);
-
-	// pos ranges
-	canvas.SetColor(255, 255, 50, (char)(255 * 0.5)); // yellow
-	canvas.SetPosition(Vector2{ (int)(pos - (13 * unitWidth) + 1), startPosition.Y + 1 });
-	canvas.FillBox(Vector2{ (int)(25 * unitWidth) - 1, boxSize.Y - 2 });
-
-	canvas.SetColor(50, 255, 50, (char)(255 * 0.5));
-	canvas.SetPosition(Vector2{ (int)(pos - (7 * unitWidth)), startPosition.Y + 1 });
-	canvas.FillBox(Vector2{ (int)(13 * unitWidth), boxSize.Y - 2 });
-
-	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.DrawLine(Vector2{ (int)(mid + ((*optimalRightAngle + 7) * unitWidth) - (3 / 2) - unitWidth) , startPosition.Y }, Vector2{ (int)(mid + ((*optimalRightAngle + 7) * unitWidth) - (3 / 2) - unitWidth), startPosition.Y + (int)boxHeight }, 3);
-	canvas.DrawLine(Vector2{ (int)(mid + ((*optimalRightAngle - 7) * unitWidth) - (3 / 2)), startPosition.Y }, Vector2{ (int)(mid + ((*optimalRightAngle - 7) * unitWidth) - (3 / 2)), startPosition.Y + (int)boxHeight }, 3);
-	canvas.DrawLine(Vector2{ (int)(mid + ((*optimalRightAngle + 12) * unitWidth) - (3 / 2)), startPosition.Y }, Vector2{ (int)(mid + ((*optimalRightAngle + 12) * unitWidth) - (3 / 2)), startPosition.Y + (int)boxHeight }, 3);
-	canvas.DrawLine(Vector2{ (int)(mid + ((*optimalRightAngle - 12) * unitWidth) - unitWidth), startPosition.Y }, Vector2{ (int)(mid + ((*optimalRightAngle - 12) * unitWidth) - unitWidth), startPosition.Y + (int)boxHeight }, 3);
-
-	// Cap angle at 90
-	if (dodgeAngle > 90) dodgeAngle = 90;
-	if (dodgeAngle < -90) dodgeAngle = -90;
-
-	canvas.SetColor(0, 0, 0, (char)(255 * 0.8));
-
-	//int compareAngle = dodgeAngle < 0 ? *optimalLeftAngle : *optimalRightAngle;
-	//if (dodgeAngle >= compareAngle - 7 && dodgeAngle <= compareAngle + 7)
-	//	canvas.SetColor(40, 200, 40, (char)(255 * opacity)); // green
-	//else if (dodgeAngle >= compareAngle - 12 && dodgeAngle <= compareAngle + 12)
-	//	canvas.SetColor(255, 255, 50, (char)(255 * opacity)); // yellow
-	//else
-	//	canvas.SetColor(255, 50, 50, (char)(255 * opacity)); // red
-	// Draw Doge angle
-	float x = mid + (dodgeAngle * unitWidth) - (unitWidth / 2);
-	canvas.DrawLine(Vector2{ (int)x , (int)(startPosition.Y - (unitWidth / 2) + 2)}, Vector2{ (int)x, startPosition.Y + (int)(boxHeight - (unitWidth/2) + 1)}, unitWidth);
 }
