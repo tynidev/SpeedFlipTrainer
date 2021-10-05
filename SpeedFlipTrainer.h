@@ -18,8 +18,13 @@ private:
 	// Whether plugin is enabled
 	shared_ptr<bool> enabled = make_shared<bool>(true);
 
+	shared_ptr<bool> showAngleMeter = make_shared<bool>(true);
+	shared_ptr<bool> showPositionMeter = make_shared<bool>(true);
+	shared_ptr<bool> showFlipMeter = make_shared<bool>(true);
+	shared_ptr<bool> showJumpMeter = make_shared<bool>(true);
+
 	// Whether the speed should be changed on consecutive hits and misses
-	shared_ptr<bool> changeSpeed = make_shared<bool>(true);
+	shared_ptr<bool> changeSpeed = make_shared<bool>(false);
 
 	// What the last speed was
 	shared_ptr<float> speed = make_shared<float>(1.0);

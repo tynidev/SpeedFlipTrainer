@@ -114,6 +114,54 @@ void SpeedFlipTrainer::RenderSettings() {
 		speedIncCvar.setValue(speedInc);
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("The value to add or subtract from game speed.");
+
+	{
+		CVarWrapper cvar = cvarManager->getCvar("sf_show_angle");
+		if (!cvar) return;
+
+		bool value = cvar.getBoolValue();
+
+		if (ImGui::Checkbox("Show dodge angle.", &value))
+			cvar.setValue(value);
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Show meter for the dodge angle.");
+	}
+
+	{
+		CVarWrapper cvar = cvarManager->getCvar("sf_show_position");
+		if (!cvar) return;
+
+		bool value = cvar.getBoolValue();
+
+		if (ImGui::Checkbox("Show horizontal position.", &value))
+			cvar.setValue(value);
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Show meter for the horizontal position.");
+	}
+
+	{
+		CVarWrapper cvar = cvarManager->getCvar("sf_show_jump");
+		if (!cvar) return;
+
+		bool value = cvar.getBoolValue();
+
+		if (ImGui::Checkbox("Show time to first jump.", &value))
+			cvar.setValue(value);
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Show meter for time to first jump.");
+	}
+
+	{
+		CVarWrapper cvar = cvarManager->getCvar("sf_show_flip");
+		if (!cvar) return;
+
+		bool value = cvar.getBoolValue();
+
+		if (ImGui::Checkbox("Show time to flip cancel.", &value))
+			cvar.setValue(value);
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Show meter for the time to flip cancel.");
+	}
 }
 
 /*

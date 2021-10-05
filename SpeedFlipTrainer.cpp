@@ -209,7 +209,7 @@ void SpeedFlipTrainer::onLoad()
 {
 	_globalCvarManager = cvarManager;
 
-	cvarManager->registerCvar("sf_enabled", "1", "Enabled speedflip training.", true, false, 0, false, 0, false).bindTo(enabled);
+	cvarManager->registerCvar("sf_enabled", "1", "Enabled speedflip training.", true, false, 0, false, 0, true).bindTo(enabled);
 	cvarManager->getCvar("sf_enabled").addOnValueChanged([this](string oldVal, CVarWrapper cvar)
 	{
 		LOG("sf_enabled = {0}", *enabled);
@@ -219,7 +219,7 @@ void SpeedFlipTrainer::onLoad()
 		}
 	});
 
-	cvarManager->registerCvar("sf_change_speed", "1", "Change game speed on consecutive hits and misses.", true, false, 0, false, 0, true).bindTo(changeSpeed);
+	cvarManager->registerCvar("sf_change_speed", "0", "Change game speed on consecutive hits and misses.", true, false, 0, false, 0, true).bindTo(changeSpeed);
 	cvarManager->registerCvar("sf_speed", "1.0", "Change game speed on consecutive hits and misses.", true, false, 0.0, false, 1.0, true).bindTo(speed);
 	cvarManager->registerCvar("sf_remember_speed", "1", "Remember last set speed.", true, true, 1, true, 1, true).bindTo(rememberSpeed);
 	cvarManager->registerCvar("sf_num_hits", "3", "Number of hits/misses before the speed increases/decreases.", true, true, 0, true, 50, true).bindTo(numHitsChangedSpeed);
@@ -228,6 +228,11 @@ void SpeedFlipTrainer::onLoad()
 	cvarManager->registerCvar("sf_left_angle", "-30", "Optimal left angle", true, true, -78, true, -12, true).bindTo(optimalLeftAngle);
 	cvarManager->registerCvar("sf_right_angle", "30", "Optimal right angle", true, true, 12, true, 78, true).bindTo(optimalRightAngle);
 	cvarManager->registerCvar("sf_cancel_threshold", "10", "Optimal flip cancel threshold.", true, true, 1, true, 15, true).bindTo(flipCancelThreshold);
+
+	cvarManager->registerCvar("sf_show_angle", "1", "Show angle meter.", true, false, 0, false, 0, true).bindTo(showAngleMeter);
+	cvarManager->registerCvar("sf_show_position", "1", "Show horizontal position meter.", true, false, 0, false, 0, true).bindTo(showPositionMeter);
+	cvarManager->registerCvar("sf_show_jump", "1", "Show jump meter.", true, false, 0, false, 0, true).bindTo(showJumpMeter);
+	cvarManager->registerCvar("sf_show_flip", "1", "Show flip cancel meter.", true, false, 0, false, 0, true).bindTo(showFlipMeter);
 
 	//cvarManager->registerCvar("sf_jump_low", "40", "Low threshold for first jump of speedflip.", true, true, 10, true, 110, false).bindTo(jumpLow);
 	//cvarManager->registerCvar("sf_jump_high", "90", "High threshold for first jump of speedflip.", true, true, 20, true, 120, false).bindTo(jumpHigh);
@@ -295,16 +300,23 @@ void SpeedFlipTrainer::Render(CanvasWrapper canvas)
 	float SCREENWIDTH = canvas.GetSize().X;
 	float SCREENHEIGHT = canvas.GetSize().Y;
 
-	RenderAngleMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
-	RenderFirstJumpMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
-	RenderFlipCancelMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
-	RenderPositionMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
+	if(*showAngleMeter)
+		RenderAngleMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
+
+	if(*showPositionMeter)
+		RenderPositionMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
+
+	if(*showFlipMeter)
+		RenderFlipCancelMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
+
+	if(*showJumpMeter)
+		RenderFirstJumpMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
 }
 
 void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
 {
 	float mid = -1.1;
-	int range = 180;
+	int range = 200;
 	int relLocation = (-1 * positionY) + range;
 	int totalUnits = range * 2;
 
@@ -324,10 +336,10 @@ void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWid
 	{
 		ranges.push_back({ (char)50, (char)255, (char)50, go, range - 80, range + 80 });
 	}
-	else if (relLocation >= range - 140 && relLocation <= range + 140)
+	else if (relLocation >= range - 160 && relLocation <= range + 160)
 	{
-		ranges.push_back({ (char)255, (char)255, (char)50, yo,  range - 140, range + 140 });
-		ranges.push_back({ (char)255, (char)255, (char)50, yo,  range - 140, range + 140 });
+		ranges.push_back({ (char)255, (char)255, (char)50, yo,  range - 160, range + 160 });
+		ranges.push_back({ (char)255, (char)255, (char)50, yo,  range - 160, range + 160 });
 	}
 	else
 	{
@@ -337,8 +349,8 @@ void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWid
 	std::list<MeterMarking> markings;
 	markings.push_back({ (char)255, (char)255, (char)255, opacity, unitWidth, range - 80 });
 	markings.push_back({ (char)255, (char)255, (char)255, opacity, unitWidth, range + 80 });
-	markings.push_back({ (char)255, (char)255, (char)255, opacity, unitWidth, range - 140 });
-	markings.push_back({ (char)255, (char)255, (char)255, opacity, unitWidth, range + 140 });
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, unitWidth, range - 160 });
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, unitWidth, range + 160 });
 	markings.push_back({ (char)0, (char)0, (char)0, 0.6, unitWidth*2, relLocation });
 
 	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, false);
