@@ -112,8 +112,6 @@ void SpeedFlipTrainer::Hook()
 
 		if (car.IsNull() || !car.GetbIsMoving())
 			return;
-		
-		positionY = car.GetLocation().Y;
 
 		float timeLeft = gameWrapper->GetCurrentGameState().GetGameTimeRemaining();
 		if (startingPhysicsFrame < 0 && timeLeft < initialTime)
@@ -135,6 +133,14 @@ void SpeedFlipTrainer::Hook()
 			flipCancelTicks = 0;
 			dodgeAngle = 0;
 			dodgedTick = 0;
+			traveledY = 0;
+		}
+
+		if (!exploded && !hit)
+		{
+			auto loc = car.GetLocation();
+			traveledY += abs(loc.Y - positionY);
+			positionY = loc.Y;
 		}
 
 		Measure(car, gameWrapper);
@@ -350,19 +356,22 @@ void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWid
 	struct Line border = { (char)255, (char)255, (char)255, opacity, 2 };
 
 	std::list<MeterRange> ranges;
-	float go = 1, ro = 1, yo = 1;
-	if (relLocation >= range - 80 && relLocation <= range + 80)
+	if (timeStarted)
 	{
-		ranges.push_back({ (char)50, (char)255, (char)50, go, range - 80, range + 80 });
-	}
-	else if (relLocation >= range - 160 && relLocation <= range + 160)
-	{
-		ranges.push_back({ (char)255, (char)255, (char)50, yo,  range - 160, range + 160 });
-		ranges.push_back({ (char)255, (char)255, (char)50, yo,  range - 160, range + 160 });
-	}
-	else
-	{
-		ranges.push_back({ (char)255,(char)50, (char)50, ro, 0, totalUnits });
+		float go = 1, ro = 1, yo = 1;
+		if (relLocation >= range - 80 && relLocation <= range + 80)
+		{
+			ranges.push_back({ (char)50, (char)255, (char)50, go, range - 80, range + 80 });
+		}
+		else if (relLocation >= range - 160 && relLocation <= range + 160)
+		{
+			ranges.push_back({ (char)255, (char)255, (char)50, yo,  range - 160, range + 160 });
+			ranges.push_back({ (char)255, (char)255, (char)50, yo,  range - 160, range + 160 });
+		}
+		else
+		{
+			ranges.push_back({ (char)255,(char)50, (char)50, ro, 0, totalUnits });
+		}
 	}
 
 	std::list<MeterMarking> markings;
@@ -605,6 +614,20 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 		canvas.SetPosition(Vector2{ startPos.X + (int)(boxSize.X / 2) - (width/2), startPos.Y - 20 });
 		canvas.DrawString(msg, 1, 1);
 	}
+
+	string msg = fmt::format("Horizontal distance traveled: {0:.1f}", traveledY);
+	int width = (msg.length() * 6.6);
+
+	//draw angle label
+	if(traveledY < 200)
+		canvas.SetColor(50, 255, 50, (char)(255 * opacity));
+	else if(traveledY < 350)
+		canvas.SetColor(255, 255, 50, (char)(255 * opacity));
+	else
+		canvas.SetColor(255, 50, 50, (char)(255 * opacity));
+
+	canvas.SetPosition(Vector2{ startPos.X + boxSize.X - width, (int)(startPos.Y - 20) });
+	canvas.DrawString(msg);
 }
 
 void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci)
@@ -616,11 +639,11 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 	ci->ActivateBoost = 1;
 	ci->HoldingBoost = 1;
 
-	int j1 = 38;
+	int j1 = 57;
 	int j1Ticks = 11;
 	int cancelTicks = 1;
-	int ticksBeforeFlipAdjust = 59;
-	int adjustTicks = 16;
+	int ticksBeforeFlipAdjust = 61;
+	int adjustTicks = 15;
 
 	if (tick <= j1)
 	{

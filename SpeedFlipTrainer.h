@@ -78,6 +78,7 @@ private:
 
 	// Variable to keep track of Y position
 	float positionY = -1.1;
+	float traveledY = 0;
 
 	// Number of ticks taken to reach the ball
 	int timeToBallTicks = 0;
