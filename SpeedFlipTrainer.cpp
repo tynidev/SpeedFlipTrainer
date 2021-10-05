@@ -173,35 +173,33 @@ void SpeedFlipTrainer::Hook()
 		exploded = false;
 		hit = false;
 
+		auto speedCvar = _globalCvarManager->getCvar("sv_soccar_gamespeed");
+		float speed = speedCvar.getFloatValue();
+
 		if (*changeSpeed)
 		{
 			if (consecutiveHits != 0 && consecutiveHits % (*numHitsChangedSpeed) == 0)
 			{
 				gameWrapper->LogToChatbox(to_string(consecutiveHits) + " " + (consecutiveHits > 1 ? "hits" : "hit") + " in a row");
-				auto speedCvar = _globalCvarManager->getCvar("sv_soccar_gamespeed");
-				float speed = speedCvar.getFloatValue();
 				speed += *speedIncrement;
 				speedCvar.setValue(speed);
-				if (*rememberSpeed)
-					*(this->speed) = speed;
 				string msg = fmt::format("Game speed + {0:.3f} = {1:.3f}", *speedIncrement, speed);
 				gameWrapper->LogToChatbox(msg);
 			}
 			else if (consecutiveMiss != 0 && consecutiveMiss % (*numHitsChangedSpeed) == 0)
 			{
 				gameWrapper->LogToChatbox(to_string(consecutiveMiss) + " " + (consecutiveMiss > 1 ? "misses" : "miss") + " in a row");
-				auto speedCvar = _globalCvarManager->getCvar("sv_soccar_gamespeed");
-				float speed = speedCvar.getFloatValue();
 				speed -= *speedIncrement;
 				if (speed <= 0)
 					speed = 0;
 				speedCvar.setValue(speed);
-				if (*rememberSpeed)
-					*(this->speed) = speed;
 				string msg = fmt::format("Game speed - {0:.3f} = {1:.3f}", *speedIncrement, speed);
 				gameWrapper->LogToChatbox(msg);
 			}
 		}
+
+		if (*rememberSpeed)
+			*(this->speed) = speed;
 	});
 }
 
@@ -354,6 +352,17 @@ void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWid
 	markings.push_back({ (char)0, (char)0, (char)0, 0.6, unitWidth*2, relLocation });
 
 	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, false);
+
+	auto speedCvar = _globalCvarManager->getCvar("sv_soccar_gamespeed");
+	float speed = speedCvar.getFloatValue();
+
+	string msg = fmt::format("Game speed: {0}%", (int)(speed * 100));
+	int width = (msg.length() * 8.5) - 10;
+
+	//draw angle label
+	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
+	canvas.SetPosition(Vector2{ startPos.X + boxSize.X - width, (int)(startPos.Y - 20) });
+	canvas.DrawString(msg);
 }
 
 void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
@@ -369,10 +378,12 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 	{
 		ticks = totalUnits;
 	}
-
 	float opacity = 1.0;
 	Vector2 reqSize = Vector2{ (int)(screenWidth * 2 / 100.f), (int)(screenHeight * 56 / 100.f) };
-	Vector2 startPos = Vector2{ (int)(screenWidth * 75 / 100.f) + 2 * reqSize.X, (int)(screenHeight * 25 / 100.f) };
+	int unitWidth = reqSize.Y / totalUnits;
+
+	Vector2 boxSize = Vector2{ reqSize.X, unitWidth * totalUnits };
+	Vector2 startPos = Vector2{ (int)(screenWidth * 80 / 100.f) - 2 * reqSize.X, (int)((screenHeight/2) - (boxSize.Y/2)) };
 	
 	struct Color baseColor = { (char)255, (char)255, (char)255, opacity };
 	struct Line border = { (char)255, (char)255, (char)255, opacity, 2 };
@@ -410,7 +421,7 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, (int)(halfMark + 15) });
 	markings.push_back({ (char)0, (char)0, (char)0, 0.6, (int)reqSize.Y/totalUnits, (int)ticks });
 
-	auto boxSize = RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, true);
+	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, true);
 
 	//draw label
 	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
@@ -424,11 +435,13 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
 {
 	float opacity = 1.0;
-	Vector2 reqSize = Vector2{ (int)(screenWidth * 2 / 100.f), (int)(screenHeight * 55 / 100.f) };
-	Vector2 startPos = Vector2{ (int)(screenWidth * 75 / 100.f), (int)(screenHeight * 25 / 100.f) };
-
 	int totalUnits = *flipCancelThreshold;
+
+	Vector2 reqSize = Vector2{ (int)(screenWidth * 2 / 100.f), (int)(screenHeight * 55 / 100.f) };
 	int unitWidth = reqSize.Y / totalUnits;
+
+	Vector2 boxSize = Vector2{ reqSize.X, unitWidth * totalUnits };
+	Vector2 startPos = Vector2{ (int)(screenWidth * 80 / 100.f), (int)((screenHeight / 2) - (boxSize.Y / 2)) };
 
 	struct Color baseColor = { (char)255, (char)255, (char)255, opacity };
 	struct Line border = { (char)255, (char)255, (char)255, opacity, 2 };
@@ -450,7 +463,7 @@ void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, float screenW
 	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, ((int)(totalUnits * 0.9f)) });
 	//markings.push_back({ (char)0, (char)0, (char)0, 0.6, 10, ticks });
 
-	auto boxSize = RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, true);
+	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, true);
 
 	//draw label
 	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
@@ -539,23 +552,21 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 
 	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, false);
 
-	//draw label
+	//draw angle label
 	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.SetPosition(Vector2{ startPos.X + boxSize.X + 5, startPos.Y + 10 });
-	canvas.DrawString("Dodge Angle");
+	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y - 20) });
+	canvas.DrawString("Dodge Angle: " + to_string(dodgeAngle) + " DEG");
 
-	//draw angle
-	canvas.SetPosition(Vector2{ startPos.X + boxSize.X + 5, startPos.Y + 25 });
-	canvas.DrawString(to_string(dodgeAngle) + " DEG");
-
-	//draw time to ball
+	//draw time to ball label
 	if (consecutiveHits >= 0)
 	{
-		canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-		canvas.SetPosition(Vector2{ startPos.X + (int)(boxSize.X/2) - 75, startPos.Y - 25 });
-
 		auto ms = timeToBallTicks * 1.0 / 120.0;
 		string msg = fmt::format("Time to ball: {0:.4f}s", ms);
+
+		int width = (msg.length() * 8) - (5 * 3); // 8 pixels per char - 5 pixels per space
+
+		canvas.SetColor(255, 255, 255, (char)(255 * opacity));
+		canvas.SetPosition(Vector2{ startPos.X + (int)(boxSize.X / 2) - (width/2), startPos.Y - 20 });
 		canvas.DrawString(msg, 1, 1);
 	}
 }
