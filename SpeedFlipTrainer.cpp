@@ -81,19 +81,34 @@ void SpeedFlipTrainer::Hook()
 		return;
 	loaded = true;
 
+	LOG("Hooking");
+
+	timeStarted = false;
+	jumped = false;
+	dodged = false;
+	flipCanceled = false;
+	jumpTick = 0;
+	flipCancelTicks = 0;
+	dodgeAngle = 0;
+	dodgedTick = 0;
+
 	if (*rememberSpeed)
 	{
 		auto speedCvar = _globalCvarManager->getCvar("sv_soccar_gamespeed");
 		speedCvar.setValue(*speed);
 	}
 
-	LOG("Hooking");
-
 	gameWrapper->HookEventWithCaller<CarWrapper>("Function TAGame.Car_TA.SetVehicleInput",
 		[this](CarWrapper cw, void* params, std::string eventname) {
 		if (!*enabled || !loaded || !gameWrapper->IsInCustomTraining())
 			return;
 		CarWrapper car = gameWrapper->GetLocalCar();
+
+		auto speedCvar = _globalCvarManager->getCvar("sv_soccar_gamespeed");
+		float speed = speedCvar.getFloatValue();
+
+		if (*rememberSpeed)
+			*(this->speed) = speed;
 
 		if (car.IsNull() || !car.GetbIsMoving())
 			return;
@@ -110,6 +125,17 @@ void SpeedFlipTrainer::Hook()
 
 		if (initialTime <= 0 || timeLeft == initialTime)
 			return;
+		else if (!timeStarted)
+		{
+			timeStarted = true;
+			jumped = false;
+			dodged = false;
+			flipCanceled = false;
+			jumpTick = 0;
+			flipCancelTicks = 0;
+			dodgeAngle = 0;
+			dodgedTick = 0;
+		}
 
 		Measure(car, gameWrapper);
 
@@ -156,9 +182,7 @@ void SpeedFlipTrainer::Hook()
 		ticksBeforeTimeExpired = initialTime * 120;
 		startingPhysicsFrame = -1;
 
-		jumped = false;
-		dodged = false;
-		flipCanceled = false;
+		timeStarted = false;
 
 		if (hit && !exploded)
 		{
@@ -197,9 +221,6 @@ void SpeedFlipTrainer::Hook()
 				gameWrapper->LogToChatbox(msg);
 			}
 		}
-
-		if (*rememberSpeed)
-			*(this->speed) = speed;
 	});
 }
 
@@ -383,7 +404,7 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 	int unitWidth = reqSize.Y / totalUnits;
 
 	Vector2 boxSize = Vector2{ reqSize.X, unitWidth * totalUnits };
-	Vector2 startPos = Vector2{ (int)(screenWidth * 80 / 100.f) - 2 * reqSize.X, (int)((screenHeight/2) - (boxSize.Y/2)) };
+	Vector2 startPos = Vector2{ (int)((screenWidth * 75 / 100.f) + 2.5 * reqSize.X), (int)((screenHeight * 80 / 100.f) - boxSize.Y) };
 	
 	struct Color baseColor = { (char)255, (char)255, (char)255, opacity };
 	struct Line border = { (char)255, (char)255, (char)255, opacity, 2 };
@@ -393,25 +414,28 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 	ranges.push_back({ (char)50,(char)255, (char)50, 0.2, (int)(halfMark - 10), (int)(halfMark + 10) });
 	ranges.push_back({ (char)255,(char)255, (char)50, 0.2, (int)(halfMark + 10), (int)(halfMark + 15) });
 
-	if (ticks < halfMark - 15)
+	if (jumped)
 	{
-		ranges.push_back({ (char)255,(char)50, (char)50, 1, 0, halfMark - 15 });
-	}
-	else if (ticks < halfMark - 10)
-	{
-		ranges.push_back({ (char)255, (char)255, (char)50, 1, (int)(halfMark - 15), (int)(halfMark - 10) });
-	}
-	else if (ticks < halfMark + 10)
-	{
-		ranges.push_back({ (char)50,(char)255, (char)50, 1, (int)(halfMark - 10), (int)(halfMark + 10) });
-	}
-	else if (ticks < halfMark + 15)
-	{
-		ranges.push_back({ (char)255,(char)255, (char)50, 1, (int)(halfMark + 10), (int)(halfMark + 15) });
-	}
-	else
-	{
-		ranges.push_back({ (char)255,(char)50, (char)50, 1, (int)(halfMark + 15), totalUnits });
+		if (ticks < halfMark - 15)
+		{
+			ranges.push_back({ (char)255,(char)50, (char)50, 1, 0, halfMark - 15 });
+		}
+		else if (ticks < halfMark - 10)
+		{
+			ranges.push_back({ (char)255, (char)255, (char)50, 1, (int)(halfMark - 15), (int)(halfMark - 10) });
+		}
+		else if (ticks < halfMark + 10)
+		{
+			ranges.push_back({ (char)50,(char)255, (char)50, 1, (int)(halfMark - 10), (int)(halfMark + 10) });
+		}
+		else if (ticks < halfMark + 15)
+		{
+			ranges.push_back({ (char)255,(char)255, (char)50, 1, (int)(halfMark + 10), (int)(halfMark + 15) });
+		}
+		else
+		{
+			ranges.push_back({ (char)255,(char)50, (char)50, 1, (int)(halfMark + 15), totalUnits });
+		}
 	}
 
 	std::list<MeterMarking> markings;
@@ -424,12 +448,15 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, true);
 
 	//draw label
+	string msg = "First Jump";
 	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.SetPosition(Vector2{ startPos.X - 15, (int)(startPos.Y + boxSize.Y + 10) });
-	canvas.DrawString("First Jump");
-	canvas.SetPosition(Vector2{ startPos.X - 4, (int)(startPos.Y + boxSize.Y + 10 + 15) });
+	canvas.SetPosition(Vector2{ (int)(startPos.X - 13), (int)(startPos.Y + boxSize.Y + 8) });
+	canvas.DrawString(msg);
+
 	auto ms = (int)(jumpTick * 1.0 / 120.0 * 1000.0 / 1.0);
-	canvas.DrawString(to_string(ms) + " ms");
+	msg = to_string(ms) + " ms";
+	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 8 + 15) });
+	canvas.DrawString(msg);
 }
 
 void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
@@ -441,22 +468,25 @@ void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, float screenW
 	int unitWidth = reqSize.Y / totalUnits;
 
 	Vector2 boxSize = Vector2{ reqSize.X, unitWidth * totalUnits };
-	Vector2 startPos = Vector2{ (int)(screenWidth * 80 / 100.f), (int)((screenHeight / 2) - (boxSize.Y / 2)) };
+	Vector2 startPos = Vector2{ (int)(screenWidth * 75 / 100.f), (int)((screenHeight * 80 / 100.f) - boxSize.Y) };
 
 	struct Color baseColor = { (char)255, (char)255, (char)255, opacity };
 	struct Line border = { (char)255, (char)255, (char)255, opacity, 2 };
 
 	// flip cancel time range
 	std::list<MeterRange> ranges;
-	auto ticks = flipCancelTicks > totalUnits ? totalUnits : flipCancelTicks;
-	struct Color meterColor;
-	if (ticks <= (int)(totalUnits * 0.6f))
-		meterColor = { (char)50, (char)255, (char)50, 0.7 }; // green
-	else if (ticks <= (int)(totalUnits * 0.9f))
-		meterColor = { (char)255, (char)255, (char)50, 0.7 }; // yellow
-	else
-		meterColor = { (char)255, (char)50, (char)50, 0.7 }; // red
-	ranges.push_back({ meterColor.red, meterColor.green, meterColor.blue, 1, 0, ticks });
+	if (flipCanceled)
+	{
+		auto ticks = flipCancelTicks > totalUnits ? totalUnits : flipCancelTicks;
+		struct Color meterColor;
+		if (ticks <= (int)(totalUnits * 0.6f))
+			meterColor = { (char)50, (char)255, (char)50, 0.7 }; // green
+		else if (ticks <= (int)(totalUnits * 0.9f))
+			meterColor = { (char)255, (char)255, (char)50, 0.7 }; // yellow
+		else
+			meterColor = { (char)255, (char)50, (char)50, 0.7 }; // red
+		ranges.push_back({ meterColor.red, meterColor.green, meterColor.blue, 1, 0, ticks });
+	}
 
 	std::list<MeterMarking> markings;
 	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, ((int)(totalUnits * 0.6f)) });
@@ -466,12 +496,15 @@ void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, float screenW
 	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, true);
 
 	//draw label
+	string msg = "Flip Cancel";
 	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.SetPosition(Vector2{startPos.X - 15, (int)(startPos.Y + boxSize.Y + 10)});
-	canvas.DrawString("Flip Cancel");
-	canvas.SetPosition(Vector2{ startPos.X - 4, (int)(startPos.Y + boxSize.Y + 10 + 15) });
+	canvas.SetPosition(Vector2{ (int)(startPos.X - 16), (int)(startPos.Y + boxSize.Y + 8) });
+	canvas.DrawString(msg);
+
 	auto ms = (int)(flipCancelTicks * 1.0 / 120.0 * 1000.0 / 1.0);
-	canvas.DrawString(to_string(ms) + " ms");
+	msg = to_string(ms) + " ms";
+	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 8 + 15) });
+	canvas.DrawString(msg);
 }
 
 void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
@@ -502,41 +535,44 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 	ranges.push_back({ (char)50, (char)255, (char)50, 0.2, 90 + *optimalRightAngle - 7, 90 + *optimalRightAngle + 7 });
 	ranges.push_back({ (char)255, (char)255, (char)50, 0.2, 90 + *optimalRightAngle + 7, 90 + *optimalRightAngle + 12 });
 
-	if (angle < *optimalLeftAngle - 12)
+	if (dodged)
 	{
-		ranges.push_back({ (char)255,(char)50, (char)50, 1, 0, 90 + *optimalLeftAngle - 12 });
-	}
-	else if (angle < *optimalLeftAngle -7)
-	{
-		ranges.push_back({ (char)255, (char)255, (char)50, 1, 90 + *optimalLeftAngle - 12, 90 + *optimalLeftAngle - 7 });
-	}
-	else if (angle < *optimalLeftAngle + 7)
-	{
-		ranges.push_back({ (char)50, (char)255, (char)50, 1, 90 + *optimalLeftAngle - 7, 90 + *optimalLeftAngle + 7 });
-	}
-	else if (angle < *optimalLeftAngle + 12)
-	{
-		ranges.push_back({ (char)255, (char)255, (char)50, 1, 90 + *optimalLeftAngle + 7, 90 + *optimalLeftAngle + 12 });
-	}
-	else if (angle < *optimalRightAngle - 12)
-	{
-		ranges.push_back({ (char)255,(char)50, (char)50, 1, 90 + *optimalLeftAngle + 12, 90 + *optimalRightAngle - 12 });
-	}
-	else if (angle < *optimalRightAngle -7)
-	{
-		ranges.push_back({ (char)255, (char)255, (char)50, 1, 90 + *optimalRightAngle - 12, 90 + *optimalRightAngle - 7 });
-	}
-	else if (angle < *optimalRightAngle + 7)
-	{
-		ranges.push_back({ (char)50, (char)255, (char)50, 1, 90 + *optimalRightAngle - 7, 90 + *optimalRightAngle + 7 });
-	}
-	else if (angle < *optimalRightAngle + 12)
-	{
-		ranges.push_back({ (char)255, (char)255, (char)50, 1, 90 + *optimalRightAngle + 7, 90 + *optimalRightAngle + 12 });
-	}
-	else
-	{
-		ranges.push_back({ (char)255, (char)50, (char)50, 1, 90 + *optimalRightAngle + 12, totalUnits });
+		if (angle < *optimalLeftAngle - 12)
+		{
+			ranges.push_back({ (char)255,(char)50, (char)50, 1, 0, 90 + *optimalLeftAngle - 12 });
+		}
+		else if (angle < *optimalLeftAngle - 7)
+		{
+			ranges.push_back({ (char)255, (char)255, (char)50, 1, 90 + *optimalLeftAngle - 12, 90 + *optimalLeftAngle - 7 });
+		}
+		else if (angle < *optimalLeftAngle + 7)
+		{
+			ranges.push_back({ (char)50, (char)255, (char)50, 1, 90 + *optimalLeftAngle - 7, 90 + *optimalLeftAngle + 7 });
+		}
+		else if (angle < *optimalLeftAngle + 12)
+		{
+			ranges.push_back({ (char)255, (char)255, (char)50, 1, 90 + *optimalLeftAngle + 7, 90 + *optimalLeftAngle + 12 });
+		}
+		else if (angle < *optimalRightAngle - 12)
+		{
+			ranges.push_back({ (char)255,(char)50, (char)50, 1, 90 + *optimalLeftAngle + 12, 90 + *optimalRightAngle - 12 });
+		}
+		else if (angle < *optimalRightAngle - 7)
+		{
+			ranges.push_back({ (char)255, (char)255, (char)50, 1, 90 + *optimalRightAngle - 12, 90 + *optimalRightAngle - 7 });
+		}
+		else if (angle < *optimalRightAngle + 7)
+		{
+			ranges.push_back({ (char)50, (char)255, (char)50, 1, 90 + *optimalRightAngle - 7, 90 + *optimalRightAngle + 7 });
+		}
+		else if (angle < *optimalRightAngle + 12)
+		{
+			ranges.push_back({ (char)255, (char)255, (char)50, 1, 90 + *optimalRightAngle + 7, 90 + *optimalRightAngle + 12 });
+		}
+		else
+		{
+			ranges.push_back({ (char)255, (char)50, (char)50, 1, 90 + *optimalRightAngle + 12, totalUnits });
+		}
 	}
 
 	std::list<MeterMarking> markings;
