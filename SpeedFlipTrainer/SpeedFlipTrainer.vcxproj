@@ -91,6 +91,7 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Attempt.cpp" />
     <ClCompile Include="fmt\src\format.cc" />
     <ClCompile Include="fmt\src\os.cc" />
     <ClCompile Include="imgui\imgui.cpp" />
@@ -113,6 +114,7 @@
     <ClCompile Include="SpeedFlipTrainerGUI.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Attempt.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
     <ClInclude Include="imgui\imguivariouscontrols.h" />

@@ -5,11 +5,12 @@
 #include "bakkesmod/plugin/PluginSettingsWindow.h"
 
 #include "version.h"
+#include "Attempt.h"
 constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD);
 
 using namespace std;
 
-class SpeedFlipTrainer: public BakkesMod::Plugin::BakkesModPlugin, public BakkesMod::Plugin::PluginSettingsWindow
+class SpeedFlipTrainer: public BakkesMod::Plugin::BakkesModPlugin, public BakkesMod::Plugin::PluginSettingsWindow, public BakkesMod::Plugin::PluginWindow
 {
 public: 
 
@@ -18,6 +19,7 @@ private:
 	// Whether plugin is enabled
 	shared_ptr<bool> enabled = make_shared<bool>(true);
 
+	// Whether to show various meters
 	shared_ptr<bool> showAngleMeter = make_shared<bool>(true);
 	shared_ptr<bool> showPositionMeter = make_shared<bool>(true);
 	shared_ptr<bool> showFlipMeter = make_shared<bool>(true);
@@ -51,6 +53,12 @@ private:
 	shared_ptr<int> jumpLow = make_shared<int>(40);
 	shared_ptr<int> jumpHigh = make_shared<int>(90);
 
+	// Use bot to perform flip
+	shared_ptr<bool> perform = make_shared<bool>(false);
+
+	// Replay stored flip
+	shared_ptr<bool> replay = make_shared<bool>(false);
+
 	// Whether plugin is loaded
 	bool loaded = false;
 
@@ -63,29 +71,10 @@ private:
 	int startingPhysicsFrame = 0 * -1;
 	int ticksBeforeTimeExpired = (int)(initialTime * 120);
 
-	// Variables to measure the first jump
-	int jumpTick = 0; // ticks before first jump occured
-	bool jumped = false;
+	filesystem::path dataDir;
 
-	// Variables to measure the flip cancel
-	int flipCancelTicks = 0;
-	bool flipCanceled = false;
-
-	// Variables to measure the dodge angle
-	int dodgeAngle = 0;
-	int dodgedTick = 0;
-	bool dodged = false;
-
-	// Variable to keep track of Y position
-	float positionY = -1.1;
-	float traveledY = 0;
-
-	// Number of ticks taken to reach the ball
-	int timeToBallTicks = 0;
-
-	// Boolean values to keep track of what happened on reset
-	bool hit = false;
-	bool exploded = false;
+	Attempt attempt;
+	Attempt previousAttempt;
 
 	// Consecutive hits and misses
 	int consecutiveHits = 0;
@@ -98,7 +87,6 @@ private:
 	// Inherited via PluginSettingsWindow
 	void RenderSettings() override;
 	std::string GetPluginName() override;
-	void SetImGuiContext(uintptr_t ctx) override;
 
 	// Hooks the necessary game functions to operate the plugin
 	void Hook();
@@ -112,11 +100,28 @@ private:
 	// Programmed bot to perform the speed flip
 	void Perform(shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci);
 
+	// Replays saved speedflip attempt
+	void Replay(Attempt* a, shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci);
+
 	// Render functions to render various meters and measured values on screen
-	void Render(CanvasWrapper canvas);
+	void RenderMeters(CanvasWrapper canvas);
 	void RenderAngleMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
 	void RenderFlipCancelMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
 	void RenderFirstJumpMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
 	void RenderPositionMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
+
+	// Inherited via PluginWindow
+	bool isWindowOpen_ = false;
+	bool isMinimized_ = false;
+	std::string menuTitle_ = "Speedflip Trainer";
+
+	virtual void Render() override;
+	virtual std::string GetMenuName() override;
+	virtual std::string GetMenuTitle() override;
+	virtual void SetImGuiContext(uintptr_t ctx) override;
+	virtual bool ShouldBlockInput() override;
+	virtual bool IsActiveOverlay() override;
+	virtual void OnOpen() override;
+	virtual void OnClose() override;
 };
 
