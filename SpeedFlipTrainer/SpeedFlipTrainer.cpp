@@ -169,6 +169,7 @@ void SpeedFlipTrainer::Hook()
 		[this](std::string eventName) {
 		if (!*enabled || !loaded || !gameWrapper->IsInCustomTraining())
 			return;
+		attempt.exploded = true;
 	});
 
 	gameWrapper->HookEventPost("Function Engine.Controller.Restart", 
@@ -632,7 +633,7 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 		}
 		else
 		{
-			ranges.push_back({ (char)255, (char)50, (char)50, 1, rTarget + 12, totalUnits });
+			ranges.push_back({ (char)255, (char)50, (char)50, 1, rTarget + yellowRange, totalUnits });
 		}
 	}
 
@@ -790,12 +791,27 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 		ci->Pitch = 1;
 		ci->DodgeForward = -1 * ci->Pitch;
 	}
-	else if (tick > beforeJump1 + j1Ticks + cancelTicks + ticksBeforeFlipAdjust + adjustTicks + 40)
+	else if (tick <= ticksBeforeTimeExpired)
 	{
 		ci->Roll = 0;
 
 		ci->Pitch = 0;
 		ci->DodgeForward = -1 * ci->Pitch;
+	}
+	else
+	{
+		ci->Throttle = 0;
+		ci->ActivateBoost = 0;
+		ci->HoldingBoost = 0;
+		ci->Jump = 0;
+		ci->Jumped = 0;
+		ci->Steer = 0;
+		ci->Yaw = ci->Steer;
+		ci->DodgeStrafe = ci->Steer;
+		ci->Roll = 0;
+		ci->Pitch = 0;
+		ci->DodgeForward = -1 * ci->Pitch;
+		ci->Handbrake = 0;
 	}
 
 	gameWrapper->OverrideParams(ci, sizeof(ControllerInput));
