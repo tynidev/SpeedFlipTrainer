@@ -721,8 +721,6 @@ void SpeedFlipTrainer::PlayBot(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 	ci->ActivateBoost = 1;
 	ci->HoldingBoost = 1;
 
-	auto bot = BotAttempt26();
-
 	if (tick <= bot.beforeJump)
 	{
 		ci->Steer = bot.initialSteer;
@@ -745,7 +743,7 @@ void SpeedFlipTrainer::PlayBot(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 		ci->Jump = 0;
 		ci->Jumped = 0;
 	}
-	else if (tick <= bot.beforeJump + bot.jumpDuration + 1 + 1)
+	else if (tick <= bot.beforeJump + bot.jumpDuration + 1 + bot.cancelSpeed)
 	{
 		// Dodge
 		ci->Jump = 1;

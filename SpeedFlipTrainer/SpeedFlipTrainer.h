@@ -79,6 +79,8 @@ private:
 	Attempt attempt;
 	Attempt replayAttempt;
 
+	BotAttempt bot;
+
 	// Consecutive hits and misses
 	int consecutiveHits = 0;
 	int consecutiveMiss = 0;

@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "SpeedFlipTrainer.h"
 #include "ImGuiFileDialog.h"
+#include "BotAttempt.h"
 
 // Plugin Settings Window code here
 std::string SpeedFlipTrainer::GetPluginName() {
@@ -222,8 +223,15 @@ void SpeedFlipTrainer::Render()
 		}
 	}
 
-	if (ImGui::Button("Load Bot"))
+	if (ImGui::Button("Load -26 Bot"))
 	{
+		bot.Get26Bot();
+		mode = SpeedFlipTrainerMode::Bot;
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Load -45 Bot"))
+	{
+		bot.Get45Bot();
 		mode = SpeedFlipTrainerMode::Bot;
 	}
 

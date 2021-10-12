@@ -11,32 +11,30 @@ public:
 	int adjustDuration = 0;
 	int cancelSpeed = 0;
 	int airRollDuration = 0;
-};
 
-class BotAttempt26 : public BotAttempt
-{
-public:
-	double dodgeAngle = -26;
-	float initialSteer = 0.03;
-	int beforeJump = 59;
-	int jumpDuration = 11;
-	int beforeCancelAdjust = 59;
-	float adjustAmmount = 0.75;
-	int adjustDuration = 16;
-	int cancelSpeed = 4;
-	int airRollDuration = 40;
-};
+	void Get26Bot()
+	{
+		dodgeAngle = -26;
+		initialSteer = 0.03;
+		beforeJump = 59;
+		jumpDuration = 11;
+		beforeCancelAdjust = 59;
+		adjustAmmount = 0.75;
+		adjustDuration = 16;
+		cancelSpeed = 5;
+		airRollDuration = 40;
+	}
 
-class BotAttempt45 : public BotAttempt
-{
-public:
-	double dodgeAngle = -45;
-	float initialSteer = 0.1;
-	int beforeJump = 59;
-	int jumpDuration = 11;
-	int beforeCancelAdjust = 59;
-	float adjustAmmount = 0.7;
-	int adjustDuration = 16;
-	int cancelSpeed = 4;
-	int airRollDuration = 40;
-}; 
+	void Get45Bot()
+	{
+		dodgeAngle = -45;
+		initialSteer = 0.1;
+		beforeJump = 59;
+		jumpDuration = 11;
+		beforeCancelAdjust = 59;
+		adjustAmmount = 0.7;
+		adjustDuration = 16;
+		cancelSpeed = 5;
+		airRollDuration = 40;
+	}
+};
