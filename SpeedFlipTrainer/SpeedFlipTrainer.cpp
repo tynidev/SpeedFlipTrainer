@@ -132,6 +132,12 @@ void SpeedFlipTrainer::Hook()
 			{
 				timeStarted = true;
 				attempt = Attempt();
+
+				if (!car.IsOnGround())
+					attempt.startedInAir = true;
+
+				if (!input->ActivateBoost)
+					attempt.startedNoBoost = true;
 			}
 
 			Measure(car, gameWrapper);
@@ -384,8 +390,6 @@ void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWid
 
 	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, false);
 
-
-
 	//draw speed label	
 	auto speedCvar = _globalCvarManager->getCvar("sv_soccar_gamespeed");
 	float speed = speedCvar.getFloatValue();
@@ -393,29 +397,29 @@ void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWid
 	int width = (msg.length() * 8.5) - 10;
 	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
 	canvas.SetPosition(Vector2{ startPos.X + boxSize.X - width, (int)(startPos.Y - 20) });
-	canvas.DrawString(msg);
+	canvas.DrawString(msg, 1, 1, true, false);
 
 	int ms = (int)(attempt.ticksNotPressingBoost / 120.0 * 1000.0);
-	if(ms != 0)
+	if (ms != 0)
+	{
 		canvas.SetColor(255, 255, 50, (char)(255 * opacity));
-	else
-		canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	//draw time not pressing boost label
-	msg = fmt::format("Not pressing Boost: {0}ms", ms);
-	width = 200;
-	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 10) });
-	canvas.DrawString(msg);
+		//draw time not pressing boost label
+		msg = fmt::format("Not pressing Boost: {0}ms", ms);
+		width = 200;
+		canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 10) });
+		canvas.DrawString(msg, 1, 1, true, false);
+	}
 
 	ms = (int)(attempt.ticksNotPressingThrottle / 120.0 * 1000.0);
 	if (ms != 0)
+	{
 		canvas.SetColor(255, 255, 50, (char)(255 * opacity));
-	else
-		canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	//draw time not pressing throttle label
-	msg = fmt::format("Not pressing Throttle: {0}ms", ms);
-	width = 200;
-	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 25) });
-	canvas.DrawString(msg);
+		//draw time not pressing throttle label
+		msg = fmt::format("Not pressing Throttle: {0}ms", ms);
+		width = 200;
+		canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 25) });
+		canvas.DrawString(msg, 1, 1, true, false);
+	}
 }
 
 void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
@@ -486,12 +490,12 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 	string msg = "First Jump";
 	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
 	canvas.SetPosition(Vector2{ (int)(startPos.X - 13), (int)(startPos.Y + boxSize.Y + 8) });
-	canvas.DrawString(msg);
+	canvas.DrawString(msg, 1, 1, true, false);
 
 	auto ms = (int)(attempt.jumpTick * 1.0 / 120.0 * 1000.0 / 1.0);
 	msg = to_string(ms) + " ms";
 	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 8 + 15) });
-	canvas.DrawString(msg);
+	canvas.DrawString(msg, 1, 1, true, false);
 }
 
 void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
@@ -536,12 +540,12 @@ void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, float screenW
 	string msg = "Flip Cancel";
 	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
 	canvas.SetPosition(Vector2{ (int)(startPos.X - 16), (int)(startPos.Y + boxSize.Y + 8) });
-	canvas.DrawString(msg);
+	canvas.DrawString(msg, 1, 1, true, false);
 
 	auto ms = (int)(tickBeforeCancel * 1.0 / 120.0 * 1000.0 / 1.0);
 	msg = to_string(ms) + " ms";
 	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 8 + 15) });
-	canvas.DrawString(msg);
+	canvas.DrawString(msg, 1, 1, true, false);
 }
 
 void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
@@ -644,7 +648,7 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 	//draw angle label
 	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
 	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y - 20) });
-	canvas.DrawString("Dodge Angle: " + to_string(attempt.dodgeAngle) + " DEG");
+	canvas.DrawString("Dodge Angle: " + to_string(attempt.dodgeAngle) + " DEG", 1, 1, true, false);
 
 	//draw time to ball label
 	if (attempt.hit && attempt.ticksToBall > 0)
@@ -656,7 +660,7 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 
 		canvas.SetColor(255, 255, 255, (char)(255 * opacity));
 		canvas.SetPosition(Vector2{ startPos.X + (int)(boxSize.X / 2) - (width/2), startPos.Y - 20 });
-		canvas.DrawString(msg, 1, 1);
+		canvas.DrawString(msg, 1, 1, true, false);
 	}
 
 	string msg = fmt::format("Horizontal distance traveled: {0:.1f}", attempt.traveledY);
@@ -668,10 +672,27 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 	else if(attempt.traveledY < 425)
 		canvas.SetColor(255, 255, 50, (char)(255 * opacity));
 	else
-		canvas.SetColor(255, 50, 50, (char)(255 * opacity));
+		canvas.SetColor(255, 10, 10, (char)(255 * opacity));
 
 	canvas.SetPosition(Vector2{ startPos.X + boxSize.X - width, (int)(startPos.Y - 20) });
-	canvas.DrawString(msg);
+	canvas.DrawString(msg, 1, 1, true, false);
+
+	int start = 10;
+	if (attempt.startedInAir)
+	{
+		msg = "Started before car touched the ground! Wait for car to settle on next attempt.";
+		canvas.SetColor(255, 10, 10, (char)(255 * opacity));
+		canvas.SetPosition(Vector2{ startPos.X + (boxSize.X / 2) - 265, (int)(startPos.Y + boxSize.Y + start) });
+		canvas.DrawString(msg, 1, 1, true, false);
+		start += 15;
+	}
+	if (attempt.startedNoBoost)
+	{
+		msg = "Was not pressing boost when time started! Press boost before you press throttle on next attempt.";
+		canvas.SetColor(255, 10, 10, (char)(255 * opacity));
+		canvas.SetPosition(Vector2{ startPos.X + (boxSize.X / 2) - 330, (int)(startPos.Y + boxSize.Y + start) });
+		canvas.DrawString(msg, 1, 1, true, false);
+	}
 }
 
 void SpeedFlipTrainer::Replay(Attempt* a, shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci)

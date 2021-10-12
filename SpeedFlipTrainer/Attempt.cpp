@@ -41,7 +41,7 @@ filesystem::path Attempt::GetFilename(filesystem::path dir)
 	auto secs = to_string(now->tm_sec);
 	secs.insert(secs.begin(), 2 - secs.length(), '0');
 
-	string filename = year + "-" + month + "-" + day + "." + hour + "." + min + "." + secs + ".attempt";
+	string filename = year + "-" + month + "-" + day + "." + hour + "." + min + "." + secs + ".csv";
 	return dir / filename;
 }
 

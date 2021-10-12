@@ -8,6 +8,12 @@ using namespace std;
 class Attempt
 {
 public:
+	// Whether the attempt started before the car touched the ground
+	bool startedInAir = false;
+
+	// Whether the attempt started without pressing boost
+	bool startedNoBoost = false;
+
 	// Variables to measure the first jump
 	int jumpTick = 0;
 	bool jumped = false;
