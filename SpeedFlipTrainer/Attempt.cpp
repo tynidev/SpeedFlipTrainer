@@ -18,7 +18,34 @@ ControllerInput Attempt::Play(int tick)
 	return ControllerInput();
 }
 
-void Attempt::WriteInputsToFile(std::filesystem::path filepath)
+filesystem::path Attempt::GetFilename(filesystem::path dir)
+{
+	// Get date string
+	auto t = time(0);
+	auto now = localtime(&t);
+
+	auto month = to_string(now->tm_mon + 1);
+	month.insert(month.begin(), 2 - month.length(), '0');
+
+	auto day = to_string(now->tm_mday);
+	day.insert(day.begin(), 2 - day.length(), '0');
+
+	auto year = to_string(now->tm_year + 1900);
+
+	auto hour = to_string(now->tm_hour);
+	hour.insert(hour.begin(), 2 - hour.length(), '0');
+
+	auto min = to_string(now->tm_min);
+	min.insert(min.begin(), 2 - min.length(), '0');
+
+	auto secs = to_string(now->tm_sec);
+	secs.insert(secs.begin(), 2 - secs.length(), '0');
+
+	string filename = year + "-" + month + "-" + day + "." + hour + "." + min + "." + secs + ".attempt";
+	return dir / filename;
+}
+
+void Attempt::WriteInputsToFile(filesystem::path filepath)
 {
 	ofstream os;
 	os.open(filepath, ios::out);
@@ -36,7 +63,7 @@ void Attempt::WriteInputsToFile(std::filesystem::path filepath)
 	   << "Throttle,"
 	   << "Yaw" << '\n';
 	for (auto& kv : inputs) {
-		os << kv.first << " "
+		os << kv.first << ","
 		   << kv.second.ActivateBoost << ","
 		   << kv.second.DodgeForward << ","
 		   << kv.second.DodgeStrafe << ","
@@ -53,7 +80,7 @@ void Attempt::WriteInputsToFile(std::filesystem::path filepath)
 	os.close();
 }
 
-void Attempt::ReadInputsFromFile(std::filesystem::path filepath)
+void Attempt::ReadInputsFromFile(filesystem::path filepath)
 {
 	ifstream is;
 	is.open(filepath, ios::in);

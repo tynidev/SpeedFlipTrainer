@@ -3,6 +3,7 @@
 #include "bakkesmod/plugin/bakkesmodplugin.h"
 #include "bakkesmod/plugin/pluginwindow.h"
 #include "bakkesmod/plugin/PluginSettingsWindow.h"
+#include "ImGuiFileDialog.h"
 
 #include "version.h"
 #include "Attempt.h"
@@ -10,11 +11,20 @@ constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_M
 
 using namespace std;
 
+enum class SpeedFlipTrainerMode
+{
+	Replay,
+	Bot,
+	Manual
+};
+
 class SpeedFlipTrainer: public BakkesMod::Plugin::BakkesModPlugin, public BakkesMod::Plugin::PluginSettingsWindow, public BakkesMod::Plugin::PluginWindow
 {
 public: 
 
 private:
+
+	SpeedFlipTrainerMode mode = SpeedFlipTrainerMode::Manual;
 
 	// Whether plugin is enabled
 	shared_ptr<bool> enabled = make_shared<bool>(true);
@@ -53,11 +63,8 @@ private:
 	shared_ptr<int> jumpLow = make_shared<int>(40);
 	shared_ptr<int> jumpHigh = make_shared<int>(90);
 
-	// Use bot to perform flip
-	shared_ptr<bool> perform = make_shared<bool>(false);
-
-	// Replay stored flip
-	shared_ptr<bool> replay = make_shared<bool>(false);
+	// Save attempts to file?
+	shared_ptr<bool> saveToFile = make_shared<bool>(false);
 
 	// Whether plugin is loaded
 	bool loaded = false;
@@ -68,13 +75,11 @@ private:
 	// Assists in determining when time started counting down
 	float initialTime = 0;
 
-	int startingPhysicsFrame = 0 * -1;
+	int startingPhysicsFrame = -1;
 	int ticksBeforeTimeExpired = (int)(initialTime * 120);
 
-	filesystem::path dataDir;
-
 	Attempt attempt;
-	Attempt previousAttempt;
+	Attempt replayAttempt;
 
 	// Consecutive hits and misses
 	int consecutiveHits = 0;
@@ -123,5 +128,8 @@ private:
 	virtual bool IsActiveOverlay() override;
 	virtual void OnOpen() override;
 	virtual void OnClose() override;
+
+	filesystem::path dataDir;
+	ImGui::FileDialog fileDialog;
 };
 

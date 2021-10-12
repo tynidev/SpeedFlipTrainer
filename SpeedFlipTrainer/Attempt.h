@@ -38,6 +38,7 @@ public:
 
 	void Record(int tick, ControllerInput input);
 	ControllerInput Play(int tick);
+	filesystem::path GetFilename(filesystem::path dir);
 	void WriteInputsToFile(std::filesystem::path filepath);
 	void ReadInputsFromFile(std::filesystem::path filepath);
 

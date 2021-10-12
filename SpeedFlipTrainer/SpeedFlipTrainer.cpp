@@ -1,6 +1,7 @@
 #include "pch.h"	
 #include "SpeedFlipTrainer.h"
 #include "RenderMeter.h"
+#include <array>
 
 #define M_PI 3.14159265358979323846
 
@@ -111,15 +112,10 @@ void SpeedFlipTrainer::Hook()
 
 		auto input = (ControllerInput*)params;
 
-		if (*perform)
+		if(mode == SpeedFlipTrainerMode::Bot)
 			Perform(gameWrapper, input);
-		else if (*replay && previousAttempt.inputs.size() > 0)
-		{
-			Replay(&previousAttempt, gameWrapper, input);
-		}
-
-		if (!car.GetbIsMoving())
-			return;
+		else if (mode == SpeedFlipTrainerMode::Replay)
+			Replay(&replayAttempt, gameWrapper, input);
 
 		float timeLeft = gameWrapper->GetCurrentGameState().GetGameTimeRemaining();
 		if (startingPhysicsFrame < 0 && timeLeft < initialTime)
@@ -135,7 +131,6 @@ void SpeedFlipTrainer::Hook()
 			if (!timeStarted)
 			{
 				timeStarted = true;
-				previousAttempt = attempt;
 				attempt = Attempt();
 			}
 
@@ -183,7 +178,6 @@ void SpeedFlipTrainer::Hook()
 		startingPhysicsFrame = -1;
 
 		timeStarted = false;
-		*replay = false;
 
 		if (attempt.hit && !attempt.exploded)
 		{
@@ -194,6 +188,13 @@ void SpeedFlipTrainer::Hook()
 		{
 			consecutiveHits = 0;
 			consecutiveMiss++;
+		}
+
+		if (*saveToFile && attempt.inputs.size() > 0)
+		{
+			auto path = attempt.GetFilename(dataDir);
+			attempt.WriteInputsToFile(path);
+			LOG("Saving attempt to: {0}", path.string());
 		}
 
 		auto speedCvar = _globalCvarManager->getCvar("sv_soccar_gamespeed");
@@ -237,7 +238,7 @@ void SpeedFlipTrainer::onLoad()
 		}
 	});
 
-	cvarManager->registerCvar("sf_bot_enabled", "0", "Enable speeflip training bot.", true, false, 0, false, 0, true).bindTo(perform);
+	cvarManager->registerCvar("sf_save_attempts", "0", "Save attmempts to a file.", true, false, 0, false, 0, true).bindTo(saveToFile);
 
 	cvarManager->registerCvar("sf_change_speed", "0", "Change game speed on consecutive hits and misses.", true, false, 0, false, 0, true).bindTo(changeSpeed);
 	cvarManager->registerCvar("sf_speed", "1.0", "Change game speed on consecutive hits and misses.", true, false, 0.0, false, 1.0, true).bindTo(speed);
@@ -273,6 +274,7 @@ void SpeedFlipTrainer::onLoad()
 		dataDir = gameWrapper->GetDataFolder().append("speedflip");
 		if (!std::filesystem::exists(dataDir))
 			std::filesystem::create_directories(dataDir);
+		fileDialog.workingDirectory = dataDir;
 	}
 
 	gameWrapper->RegisterDrawable(bind(&SpeedFlipTrainer::RenderMeters, this, std::placeholders::_1));
@@ -674,6 +676,9 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 
 void SpeedFlipTrainer::Replay(Attempt* a, shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci)
 {
+	if (a->inputs.size() <= 0)
+		return;
+
 	int currentPhysicsFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 	int tick = currentPhysicsFrame - startingPhysicsFrame;
 
@@ -706,41 +711,47 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 	ci->ActivateBoost = 1;
 	ci->HoldingBoost = 1;
 
-	double dodgeAngle = -30;
-	
-	int beforeJump1 = 57;
-	int j1Ticks = 16;
+	double dodgeAngle = -28;
 
-	int cancelTicks = 1;
-	int ticksBeforeFlipAdjust = 65;
-	int adjustTicks = 8;
+	float initialSteer = 0.05;
 
-	if (tick <= beforeJump1)
+	int beforeJump = 57;
+	int jumpDuration = 5;
+	int beforeDodge = 16;
+	int cancelSpeed = 4;
+
+	int beforeCancelAdjust = 65;
+	float adjustAmmount = 0.5;
+	int adjustDuration = 8;
+	int airRollDuration = 40;
+
+	if (tick <= beforeJump)
 	{
-		ci->Steer = 0;
+		ci->Steer = initialSteer;
 		ci->Yaw = ci->Steer;
 		ci->DodgeStrafe = ci->Steer;
 	}
-	else if (tick <= beforeJump1 + j1Ticks)
+	else if (tick <= beforeJump + jumpDuration)
 	{
-		if (tick <= beforeJump1 + 5) // jumpDuration
-		{
-			// First jump
-			ci->Jump = 1;
-			ci->Jumped = 1;
-		}
-		else
-		{
-			// Stop jumping
-			ci->Jump = 0;
-			ci->Jumped = 0;
-		}
+		// First jump
+		ci->Jump = 1;
+		ci->Jumped = 1;
 
 		ci->Steer = 1;
 		ci->Yaw = ci->Steer;
 		ci->DodgeStrafe = ci->Steer;
 	}
-	else if (tick <= beforeJump1 + j1Ticks + cancelTicks)
+	else if (tick <= beforeJump + beforeDodge)
+	{
+		// Stop jumping
+		ci->Jump = 0;
+		ci->Jumped = 0;
+
+		ci->Steer = 1;
+		ci->Yaw = ci->Steer;
+		ci->DodgeStrafe = ci->Steer;
+	}
+	else if (tick <= beforeJump + beforeDodge + cancelSpeed)
 	{
 		// Stop jumping
 		ci->Jump = 0;
@@ -758,7 +769,7 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 		ci->Pitch = -1 * cos(rads);
 		ci->DodgeForward = -1 * ci->Pitch;
 	}
-	else if (tick <= beforeJump1 + j1Ticks + cancelTicks + ticksBeforeFlipAdjust)
+	else if (tick <= beforeJump + beforeDodge + cancelSpeed + beforeCancelAdjust)
 	{
 		// Cancel flip
 		ci->Jump = 0;
@@ -771,16 +782,16 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 		ci->Pitch = 1;
 		ci->DodgeForward = -1 * ci->Pitch;
 	}
-	else if (tick <= beforeJump1 + j1Ticks + cancelTicks + ticksBeforeFlipAdjust + adjustTicks)
+	else if (tick <= beforeJump + beforeDodge + cancelSpeed + beforeCancelAdjust + adjustDuration)
 	{
-		ci->Steer = -0.3;
+		ci->Steer = -1 * adjustAmmount;
 		ci->Yaw = ci->Steer;
 		ci->DodgeStrafe = ci->Steer;
 
-		ci->Pitch = 0.3;
+		ci->Pitch = adjustAmmount;
 		ci->DodgeForward = -1 * ci->Pitch;
 	}
-	else if (tick <= beforeJump1 + j1Ticks + cancelTicks + ticksBeforeFlipAdjust + adjustTicks + 40)
+	else if (tick <= beforeJump + beforeDodge + cancelSpeed + beforeCancelAdjust + adjustDuration + airRollDuration)
 	{
 		ci->Steer = 0;
 		ci->Yaw = ci->Steer;
@@ -798,7 +809,7 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 		ci->Pitch = 0;
 		ci->DodgeForward = -1 * ci->Pitch;
 	}
-	else
+	else if (tick > ticksBeforeTimeExpired)
 	{
 		ci->Throttle = 0;
 		ci->ActivateBoost = 0;

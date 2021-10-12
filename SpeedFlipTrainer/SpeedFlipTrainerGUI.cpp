@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "SpeedFlipTrainer.h"
+#include "ImGuiFileDialog.h"
 
 // Plugin Settings Window code here
 std::string SpeedFlipTrainer::GetPluginName() {
@@ -181,9 +182,49 @@ void SpeedFlipTrainer::Render()
 		return;
 	}
 
-	if (ImGui::Button("Replay Last Attempt"))
+	if (ImGui::Button("Enable manual mode"))
 	{
-		*replay = true;
+		mode = SpeedFlipTrainerMode::Manual;
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Save last attempt"))
+	{
+		auto path = attempt.GetFilename(dataDir);
+		attempt.WriteInputsToFile(path);
+		LOG("Saved attempt to: {0}", path.string());
+	}
+
+	if (ImGui::Button("Replay last attempt"))
+	{
+		mode = SpeedFlipTrainerMode::Replay;
+		replayAttempt = attempt;
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Load replay attempt"))
+	{
+		fileDialog.open = true;
+	}		
+	if (fileDialog.open && fileDialog.ShowFileDialog(ImGui::FileDialogType::SelectFile))
+	{
+		auto file = fileDialog.selected.string();
+		auto a = Attempt();
+
+		try 
+		{
+			a.ReadInputsFromFile(fileDialog.selected);
+			mode = SpeedFlipTrainerMode::Replay;
+			replayAttempt = a;
+			LOG("Loaded attempt from file: {0}", file);
+		}
+		catch (...)
+		{
+			LOG("Failed to read attempt from file: {0}", file);
+		}
+	}
+
+	if (ImGui::Button("Enable bot"))
+	{
+		mode = SpeedFlipTrainerMode::Bot;
 	}
 
 	ImGui::End();
