@@ -95,6 +95,7 @@ void SpeedFlipTrainer::Hook()
 	loaded = true;
 
 	LOG("Hooking");
+	gameWrapper->RegisterDrawable(bind(&SpeedFlipTrainer::RenderMeters, this, std::placeholders::_1));
 
 	if (*rememberSpeed)
 		_globalCvarManager->getCvar("sv_soccar_gamespeed").setValue(*speed);
@@ -117,53 +118,40 @@ void SpeedFlipTrainer::Hook()
 		else if (mode == SpeedFlipTrainerMode::Replay)
 			Replay(&replayAttempt, gameWrapper, input);
 
+		// Has time started counting down?
 		float timeLeft = gameWrapper->GetCurrentGameState().GetGameTimeRemaining();
-		if (startingPhysicsFrame < 0 && timeLeft < initialTime)
+		int currentFrame = gameWrapper->GetEngine().GetPhysicsFrame();
+		if (initialTime <= 0 || timeLeft == initialTime) // if we have no time OR countdown hasn't started just return
+			return;
+		if (startingPhysicsFrame < 0 && timeLeft < initialTime) // if this is the first frame the countdown has begun
 		{
-			startingPhysicsFrame = gameWrapper->GetEngine().GetPhysicsFrame();
+			startingPhysicsFrame = currentFrame;
+
+			attempt = Attempt();
+
+			if (!car.IsOnGround())
+				attempt.startedInAir = true;
+
+			if (!input->ActivateBoost)
+				attempt.startedNoBoost = true;
 		}
 
-		if (initialTime <= 0 || timeLeft == initialTime)
-			return;
-
-		if ((timeStarted && !attempt.exploded && !attempt.hit) || !timeStarted)
+		// ball hasn't exploded or been hit yet
+		if (!attempt.exploded && !attempt.hit)
 		{
-			if (!timeStarted)
-			{
-				timeStarted = true;
-				attempt = Attempt();
-
-				if (!car.IsOnGround())
-					attempt.startedInAir = true;
-
-				if (!input->ActivateBoost)
-					attempt.startedNoBoost = true;
-			}
-
 			Measure(car, gameWrapper);
 		}
 	});
 
 	gameWrapper->HookEvent("Function TAGame.Car_TA.EventHitBall", 
 		[this](std::string eventname) {
-		if (!*enabled || !loaded || !gameWrapper->IsInCustomTraining() || attempt.hit)
+		if (!*enabled || !loaded || !gameWrapper->IsInCustomTraining() || attempt.hit || attempt.exploded)
 			return;
 
-		auto currentPhysicsFrame = gameWrapper->GetEngine().GetPhysicsFrame();
-		attempt.ticksToBall = currentPhysicsFrame - startingPhysicsFrame;
-
-		if (attempt.ticksToBall <= ticksBeforeTimeExpired)
-		{
-			LOG("HIT BALL: {0} ticks", attempt.ticksToBall);
-			LOG("# Ticks under: {0}", ticksBeforeTimeExpired - attempt.ticksToBall);
-			attempt.hit = true;
-		}
-		else if (attempt.ticksToBall > ticksBeforeTimeExpired)
-		{
-			LOG("Too slow: {0} ticks", attempt.ticksToBall);
-			LOG("# Ticks over: {0}", attempt.ticksToBall - ticksBeforeTimeExpired);
-			attempt.hit = false;
-		}
+		attempt.ticksToBall = gameWrapper->GetEngine().GetPhysicsFrame() - startingPhysicsFrame;
+		attempt.timeToBall = initialTime - gameWrapper->GetCurrentGameState().GetGameTimeRemaining();
+		attempt.hit = true;
+		LOG("Time to ball: {0:.3f}s after {1} tick", attempt.timeToBall, attempt.ticksToBall);
 	});
 
 	gameWrapper->HookEvent("Function TAGame.Ball_TA.Explode", 
@@ -171,6 +159,7 @@ void SpeedFlipTrainer::Hook()
 		if (!*enabled || !loaded || !gameWrapper->IsInCustomTraining())
 			return;
 		attempt.exploded = true;
+		attempt.hit = false;
 	});
 
 	gameWrapper->HookEventPost("Function Engine.Controller.Restart", 
@@ -182,8 +171,6 @@ void SpeedFlipTrainer::Hook()
 		initialTime = gameWrapper->GetCurrentGameState().GetGameTimeRemaining();
 		ticksBeforeTimeExpired = initialTime * 120;
 		startingPhysicsFrame = -1;
-
-		timeStarted = false;
 
 		if (attempt.hit && !attempt.exploded)
 		{
@@ -283,7 +270,6 @@ void SpeedFlipTrainer::onLoad()
 		fileDialog.workingDirectory = dataDir;
 	}
 
-	gameWrapper->RegisterDrawable(bind(&SpeedFlipTrainer::RenderMeters, this, std::placeholders::_1));
 }
 
 void SpeedFlipTrainer::onUnload()
@@ -296,7 +282,8 @@ void SpeedFlipTrainer::onUnload()
 	gameWrapper->UnhookEvent("Function TAGame.Car_TA.SetVehicleInput");
 	gameWrapper->UnhookEvent("Function TAGame.Car_TA.EventHitBall");
 	gameWrapper->UnhookEvent("Function TAGame.Ball_TA.Explode");
-	gameWrapper->UnhookEventPost("Function Engine.Controller.Restart");
+	gameWrapper->UnhookEventPost("Function Engine.Controller.Restart"); 
+	gameWrapper->UnregisterDrawables();
 }
 
 bool SpeedFlipTrainer::IsMustysPack(TrainingEditorWrapper tw)
@@ -363,7 +350,7 @@ void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWid
 	struct Line border = { (char)255, (char)255, (char)255, opacity, 2 };
 
 	std::list<MeterRange> ranges;
-	if (timeStarted)
+	if (startingPhysicsFrame > 0)
 	{
 		float go = 1, ro = 1, yo = 1;
 		if (relLocation >= range - 80 && relLocation <= range + 80)
@@ -654,6 +641,7 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 	if (attempt.hit && attempt.ticksToBall > 0)
 	{
 		auto ms = attempt.ticksToBall * 1.0 / 120.0;
+		//string msg = fmt::format("Time to ball: {0:.3f}s", attempt.timeToBall);
 		string msg = fmt::format("Time to ball: {0:.4f}s", ms);
 
 		int width = (msg.length() * 8) - (5 * 3); // 8 pixels per char - 5 pixels per space

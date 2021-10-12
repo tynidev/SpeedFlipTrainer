@@ -69,9 +69,6 @@ private:
 	// Whether plugin is loaded
 	bool loaded = false;
 
-	// Whether countdown has started
-	bool timeStarted = false;
-
 	// Assists in determining when time started counting down
 	float initialTime = 0;
 

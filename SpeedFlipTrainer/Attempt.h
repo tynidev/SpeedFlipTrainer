@@ -33,6 +33,7 @@ public:
 
 	// Number of ticks taken to reach the ball
 	int ticksToBall = 0;
+	float timeToBall = 0.0f;
 
 	// Boolean values to keep track of what happened on reset
 	bool hit = false;
