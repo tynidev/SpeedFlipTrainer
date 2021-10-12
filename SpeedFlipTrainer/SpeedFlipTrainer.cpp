@@ -710,19 +710,16 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 	ci->Throttle = 1;
 	ci->ActivateBoost = 1;
 	ci->HoldingBoost = 1;
+	double dodgeAngle = -26;
 
-	double dodgeAngle = -28;
+	float initialSteer = 0.01;
 
-	float initialSteer = 0.05;
-
-	int beforeJump = 57;
-	int jumpDuration = 5;
-	int beforeDodge = 16;
-	int cancelSpeed = 4;
-
-	int beforeCancelAdjust = 65;
+	int beforeJump = 59;
+	int jumpDuration = 11;
+	int beforeCancelAdjust = 59;
 	float adjustAmmount = 0.5;
-	int adjustDuration = 8;
+	int adjustDuration = 16;
+	int cancelSpeed = 4;
 	int airRollDuration = 40;
 
 	if (tick <= beforeJump)
@@ -741,21 +738,14 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 		ci->Yaw = ci->Steer;
 		ci->DodgeStrafe = ci->Steer;
 	}
-	else if (tick <= beforeJump + beforeDodge)
+	else if (tick <= beforeJump + jumpDuration + 1)
 	{
 		// Stop jumping
 		ci->Jump = 0;
 		ci->Jumped = 0;
-
-		ci->Steer = 1;
-		ci->Yaw = ci->Steer;
-		ci->DodgeStrafe = ci->Steer;
 	}
-	else if (tick <= beforeJump + beforeDodge + cancelSpeed)
+	else if (tick <= beforeJump + jumpDuration + 1 + 1)
 	{
-		// Stop jumping
-		ci->Jump = 0;
-		ci->Jumped = 0;
 		// Dodge
 		ci->Jump = 1;
 		ci->Jumped = 1;
@@ -769,7 +759,7 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 		ci->Pitch = -1 * cos(rads);
 		ci->DodgeForward = -1 * ci->Pitch;
 	}
-	else if (tick <= beforeJump + beforeDodge + cancelSpeed + beforeCancelAdjust)
+	else if (tick <= beforeJump + jumpDuration + 1 + cancelSpeed + beforeCancelAdjust)
 	{
 		// Cancel flip
 		ci->Jump = 0;
@@ -780,9 +770,9 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 		ci->DodgeStrafe = ci->Steer;
 
 		ci->Pitch = 1;
-		ci->DodgeForward = -1 * ci->Pitch;
+		ci->DodgeForward = -1;
 	}
-	else if (tick <= beforeJump + beforeDodge + cancelSpeed + beforeCancelAdjust + adjustDuration)
+	else if (tick <= beforeJump + jumpDuration + 1 + cancelSpeed + beforeCancelAdjust + adjustDuration)
 	{
 		ci->Steer = -1 * adjustAmmount;
 		ci->Yaw = ci->Steer;
@@ -791,7 +781,7 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 		ci->Pitch = adjustAmmount;
 		ci->DodgeForward = -1 * ci->Pitch;
 	}
-	else if (tick <= beforeJump + beforeDodge + cancelSpeed + beforeCancelAdjust + adjustDuration + airRollDuration)
+	else if (tick <= beforeJump + jumpDuration + 1 + cancelSpeed + beforeCancelAdjust + adjustDuration + airRollDuration)
 	{
 		ci->Steer = 0;
 		ci->Yaw = ci->Steer;
@@ -802,27 +792,12 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 		ci->Pitch = 1;
 		ci->DodgeForward = -1 * ci->Pitch;
 	}
-	else if (tick <= ticksBeforeTimeExpired)
+	else if (tick > beforeJump + jumpDuration + 1 + cancelSpeed + beforeCancelAdjust + adjustDuration + airRollDuration)
 	{
 		ci->Roll = 0;
 
 		ci->Pitch = 0;
-		ci->DodgeForward = -1 * ci->Pitch;
-	}
-	else if (tick > ticksBeforeTimeExpired)
-	{
-		ci->Throttle = 0;
-		ci->ActivateBoost = 0;
-		ci->HoldingBoost = 0;
-		ci->Jump = 0;
-		ci->Jumped = 0;
-		ci->Steer = 0;
-		ci->Yaw = ci->Steer;
-		ci->DodgeStrafe = ci->Steer;
-		ci->Roll = 0;
-		ci->Pitch = 0;
-		ci->DodgeForward = -1 * ci->Pitch;
-		ci->Handbrake = 0;
+		ci->DodgeForward = 0;
 	}
 
 	gameWrapper->OverrideParams(ci, sizeof(ControllerInput));
