@@ -2,6 +2,7 @@
 #include "SpeedFlipTrainer.h"
 #include "RenderMeter.h"
 #include <array>
+#include "BotAttempt.h"
 
 #define M_PI 3.14159265358979323846
 
@@ -114,9 +115,9 @@ void SpeedFlipTrainer::Hook()
 		auto input = (ControllerInput*)params;
 
 		if(mode == SpeedFlipTrainerMode::Bot)
-			Perform(gameWrapper, input);
+			PlayBot(gameWrapper, input);
 		else if (mode == SpeedFlipTrainerMode::Replay)
-			Replay(&replayAttempt, gameWrapper, input);
+			PlayAttempt(&replayAttempt, gameWrapper, input);
 
 		// Has time started counting down?
 		float timeLeft = gameWrapper->GetCurrentGameState().GetGameTimeRemaining();
@@ -683,7 +684,7 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 	}
 }
 
-void SpeedFlipTrainer::Replay(Attempt* a, shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci)
+void SpeedFlipTrainer::PlayAttempt(Attempt* a, shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci)
 {
 	if (a->inputs.size() <= 0)
 		return;
@@ -711,7 +712,7 @@ void SpeedFlipTrainer::Replay(Attempt* a, shared_ptr<GameWrapper> gameWrapper, C
 	gameWrapper->OverrideParams(ci, sizeof(ControllerInput));
 }
 
-void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci)
+void SpeedFlipTrainer::PlayBot(shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci)
 {
 	int currentPhysicsFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 	int tick = currentPhysicsFrame - startingPhysicsFrame;
@@ -719,25 +720,16 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 	ci->Throttle = 1;
 	ci->ActivateBoost = 1;
 	ci->HoldingBoost = 1;
-	double dodgeAngle = -26;
 
-	float initialSteer = 0.01;
+	auto bot = BotAttempt26();
 
-	int beforeJump = 59;
-	int jumpDuration = 11;
-	int beforeCancelAdjust = 59;
-	float adjustAmmount = 0.5;
-	int adjustDuration = 16;
-	int cancelSpeed = 4;
-	int airRollDuration = 40;
-
-	if (tick <= beforeJump)
+	if (tick <= bot.beforeJump)
 	{
-		ci->Steer = initialSteer;
+		ci->Steer = bot.initialSteer;
 		ci->Yaw = ci->Steer;
 		ci->DodgeStrafe = ci->Steer;
 	}
-	else if (tick <= beforeJump + jumpDuration)
+	else if (tick <= bot.beforeJump + bot.jumpDuration)
 	{
 		// First jump
 		ci->Jump = 1;
@@ -747,19 +739,19 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 		ci->Yaw = ci->Steer;
 		ci->DodgeStrafe = ci->Steer;
 	}
-	else if (tick <= beforeJump + jumpDuration + 1)
+	else if (tick <= bot.beforeJump + bot.jumpDuration + 1)
 	{
 		// Stop jumping
 		ci->Jump = 0;
 		ci->Jumped = 0;
 	}
-	else if (tick <= beforeJump + jumpDuration + 1 + 1)
+	else if (tick <= bot.beforeJump + bot.jumpDuration + 1 + 1)
 	{
 		// Dodge
 		ci->Jump = 1;
 		ci->Jumped = 1;
 
-		double rads = dodgeAngle * M_PI / 180;
+		double rads = bot.dodgeAngle * M_PI / 180;
 
 		ci->Steer = sin(rads);
 		ci->Yaw = ci->Steer;
@@ -768,7 +760,7 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 		ci->Pitch = -1 * cos(rads);
 		ci->DodgeForward = -1 * ci->Pitch;
 	}
-	else if (tick <= beforeJump + jumpDuration + 1 + cancelSpeed + beforeCancelAdjust)
+	else if (tick <= bot.beforeJump + bot.jumpDuration + 1 + bot.cancelSpeed + bot.beforeCancelAdjust)
 	{
 		// Cancel flip
 		ci->Jump = 0;
@@ -781,16 +773,16 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 		ci->Pitch = 1;
 		ci->DodgeForward = -1;
 	}
-	else if (tick <= beforeJump + jumpDuration + 1 + cancelSpeed + beforeCancelAdjust + adjustDuration)
+	else if (tick <= bot.beforeJump + bot.jumpDuration + 1 + bot.cancelSpeed + bot.beforeCancelAdjust + bot.adjustDuration)
 	{
-		ci->Steer = -1 * adjustAmmount;
+		ci->Steer = -1 * bot.adjustAmmount;
 		ci->Yaw = ci->Steer;
 		ci->DodgeStrafe = ci->Steer;
 
-		ci->Pitch = adjustAmmount;
+		ci->Pitch = bot.adjustAmmount;
 		ci->DodgeForward = -1 * ci->Pitch;
 	}
-	else if (tick <= beforeJump + jumpDuration + 1 + cancelSpeed + beforeCancelAdjust + adjustDuration + airRollDuration)
+	else if (tick <= bot.beforeJump + bot.jumpDuration + 1 + bot.cancelSpeed + bot.beforeCancelAdjust + bot.adjustDuration + bot.airRollDuration)
 	{
 		ci->Steer = 0;
 		ci->Yaw = ci->Steer;
@@ -801,7 +793,7 @@ void SpeedFlipTrainer::Perform(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 		ci->Pitch = 1;
 		ci->DodgeForward = -1 * ci->Pitch;
 	}
-	else if (tick > beforeJump + jumpDuration + 1 + cancelSpeed + beforeCancelAdjust + adjustDuration + airRollDuration)
+	else if (tick > bot.beforeJump + bot.jumpDuration + 1 + bot.cancelSpeed + bot.beforeCancelAdjust + bot.adjustDuration + bot.airRollDuration)
 	{
 		ci->Roll = 0;
 

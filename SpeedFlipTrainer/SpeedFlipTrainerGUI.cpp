@@ -222,7 +222,7 @@ void SpeedFlipTrainer::Render()
 		}
 	}
 
-	if (ImGui::Button("Enable bot"))
+	if (ImGui::Button("Load Bot"))
 	{
 		mode = SpeedFlipTrainerMode::Bot;
 	}

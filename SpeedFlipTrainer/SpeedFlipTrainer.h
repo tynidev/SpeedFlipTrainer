@@ -4,6 +4,7 @@
 #include "bakkesmod/plugin/pluginwindow.h"
 #include "bakkesmod/plugin/PluginSettingsWindow.h"
 #include "ImGuiFileDialog.h"
+#include "BotAttempt.h"
 
 #include "version.h"
 #include "Attempt.h"
@@ -100,10 +101,10 @@ private:
 	void Measure(CarWrapper car, shared_ptr<GameWrapper> gameWrapper);
 
 	// Programmed bot to perform the speed flip
-	void Perform(shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci);
+	void PlayBot(shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci);
 
 	// Replays saved speedflip attempt
-	void Replay(Attempt* a, shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci);
+	void PlayAttempt(Attempt* a, shared_ptr<GameWrapper> gameWrapper, ControllerInput* ci);
 
 	// Render functions to render various meters and measured values on screen
 	void RenderMeters(CanvasWrapper canvas);
