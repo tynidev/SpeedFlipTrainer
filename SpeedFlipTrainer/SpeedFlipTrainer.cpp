@@ -43,9 +43,15 @@ clock_time ComputeClockTime(int angle)
 	return time;
 }
 
+float distance(Vector a, Vector b)
+{
+	// Calculating distance
+	return sqrt(pow(a.X - b.X, 2) +
+		pow(a.Y - b.Y, 2));
+}
+
 void SpeedFlipTrainer::Measure(CarWrapper car, std::shared_ptr<GameWrapper> gameWrapper)
 {
-
 	int currentPhysicsFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 	int currentTick = currentPhysicsFrame - startingPhysicsFrame;
 
@@ -160,6 +166,14 @@ void SpeedFlipTrainer::Hook()
 		[this](std::string eventName) {
 		if (!*enabled || !loaded || !gameWrapper->IsInCustomTraining())
 			return;
+
+		auto ball = gameWrapper->GetGameEventAsServer().GetBall();
+		auto car = gameWrapper->GetGameEventAsServer().GetLocalPrimaryPlayer();
+
+		auto distanceToBall = distance(ball.GetLocation(), car.GetLocation());
+		auto meters = (distanceToBall / 100.0) - 4.8; // account for car distance
+		LOG("Distance to ball = {0:.1f}m", meters);
+
 		attempt.exploded = true;
 		attempt.hit = false;
 	});
