@@ -12,29 +12,8 @@ public:
 	int cancelSpeed = 0;
 	int airRollDuration = 0;
 
-	void Get26Bot()
-	{
-		dodgeAngle = -26;
-		initialSteer = 0.03;
-		beforeJump = 59;
-		jumpDuration = 11;
-		beforeCancelAdjust = 59;
-		adjustAmmount = 0.75;
-		adjustDuration = 16;
-		cancelSpeed = 5;
-		airRollDuration = 40;
-	}
-
-	void Get45Bot()
-	{
-		dodgeAngle = -45;
-		initialSteer = 0.1;
-		beforeJump = 59;
-		jumpDuration = 11;
-		beforeCancelAdjust = 59;
-		adjustAmmount = 0.7;
-		adjustDuration = 16;
-		cancelSpeed = 5;
-		airRollDuration = 40;
-	}
+	void Become26Bot();
+	void Become45Bot();
+	void ReadInputsFromFile(std::filesystem::path filepath);
+	void Play(ControllerInput* ci, int tick);
 };

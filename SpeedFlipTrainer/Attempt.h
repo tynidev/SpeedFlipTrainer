@@ -44,7 +44,7 @@ public:
 	int ticksNotPressingThrottle = 0;
 
 	void Record(int tick, ControllerInput input);
-	ControllerInput Play(int tick);
+	void Play(ControllerInput* ci, int tick);
 	filesystem::path GetFilename(filesystem::path dir);
 	void WriteInputsToFile(std::filesystem::path filepath);
 	void ReadInputsFromFile(std::filesystem::path filepath);

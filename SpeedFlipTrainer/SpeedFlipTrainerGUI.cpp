@@ -225,13 +225,13 @@ void SpeedFlipTrainer::Render()
 
 	if (ImGui::Button("Load -26 Bot"))
 	{
-		bot.Get26Bot();
+		bot.Become26Bot();
 		mode = SpeedFlipTrainerMode::Bot;
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Load -45 Bot"))
 	{
-		bot.Get45Bot();
+		bot.Become45Bot();
 		mode = SpeedFlipTrainerMode::Bot;
 	}
 

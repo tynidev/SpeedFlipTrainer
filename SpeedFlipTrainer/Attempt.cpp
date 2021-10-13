@@ -5,17 +5,31 @@
 #include <fstream>
 #include <sstream>
 
+using namespace std;
+
 void Attempt::Record(int tick, ControllerInput input)
 {
 	inputs[tick] = input;
 }
 
-ControllerInput Attempt::Play(int tick)
-{
+void Attempt::Play(ControllerInput* ci, int tick)
+{	
 	auto it = inputs.find(tick);
-	if (it != inputs.end())
-		return it->second;
-	return ControllerInput();
+	if (it == inputs.end())
+		return;
+
+	ci->ActivateBoost = it->second.ActivateBoost;
+	ci->DodgeForward = it->second.DodgeForward;
+	ci->DodgeStrafe = it->second.DodgeStrafe;
+	ci->Handbrake = it->second.Handbrake;
+	ci->HoldingBoost = it->second.HoldingBoost;
+	ci->Jump = it->second.Jump;
+	ci->Jumped = it->second.Jumped;
+	ci->Pitch = it->second.Pitch;
+	ci->Roll = it->second.Roll;
+	ci->Steer = it->second.Steer;
+	ci->Throttle = it->second.Throttle;
+	ci->Yaw = it->second.Yaw;
 }
 
 filesystem::path Attempt::GetFilename(filesystem::path dir)

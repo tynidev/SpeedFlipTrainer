@@ -92,6 +92,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Attempt.cpp" />
+    <ClCompile Include="BotAttempt.cpp" />
     <ClCompile Include="fmt\src\format.cc" />
     <ClCompile Include="fmt\src\os.cc" />
     <ClCompile Include="imgui\imgui.cpp" />

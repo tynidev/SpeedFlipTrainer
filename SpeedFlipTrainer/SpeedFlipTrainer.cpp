@@ -4,7 +4,8 @@
 #include <array>
 #include "BotAttempt.h"
 
-#define M_PI 3.14159265358979323846
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 BAKKESMOD_PLUGIN(SpeedFlipTrainer, "Speedflip trainer", plugin_version, PLUGINTYPE_CUSTOM_TRAINING)
 
@@ -692,22 +693,7 @@ void SpeedFlipTrainer::PlayAttempt(Attempt* a, shared_ptr<GameWrapper> gameWrapp
 	int currentPhysicsFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 	int tick = currentPhysicsFrame - startingPhysicsFrame;
 
-	auto it = a->inputs.find(tick);
-	if (it == a->inputs.end())
-		return;
-
-	ci->ActivateBoost = it->second.ActivateBoost;
-	ci->DodgeForward = it->second.DodgeForward;
-	ci->DodgeStrafe = it->second.DodgeStrafe;
-	ci->Handbrake = it->second.Handbrake;
-	ci->HoldingBoost = it->second.HoldingBoost;
-	ci->Jump = it->second.Jump;
-	ci->Jumped = it->second.Jumped;
-	ci->Pitch = it->second.Pitch;
-	ci->Roll = it->second.Roll;
-	ci->Steer = it->second.Steer;
-	ci->Throttle = it->second.Throttle;
-	ci->Yaw = it->second.Yaw;
+	a->Play(ci, tick);
 
 	gameWrapper->OverrideParams(ci, sizeof(ControllerInput));
 }
@@ -717,87 +703,7 @@ void SpeedFlipTrainer::PlayBot(shared_ptr<GameWrapper> gameWrapper, ControllerIn
 	int currentPhysicsFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 	int tick = currentPhysicsFrame - startingPhysicsFrame;
 
-	ci->Throttle = 1;
-	ci->ActivateBoost = 1;
-	ci->HoldingBoost = 1;
-
-	if (tick <= bot.beforeJump)
-	{
-		ci->Steer = bot.initialSteer;
-		ci->Yaw = ci->Steer;
-		ci->DodgeStrafe = ci->Steer;
-	}
-	else if (tick <= bot.beforeJump + bot.jumpDuration)
-	{
-		// First jump
-		ci->Jump = 1;
-		ci->Jumped = 1;
-
-		ci->Steer = 1;
-		ci->Yaw = ci->Steer;
-		ci->DodgeStrafe = ci->Steer;
-	}
-	else if (tick <= bot.beforeJump + bot.jumpDuration + 1)
-	{
-		// Stop jumping
-		ci->Jump = 0;
-		ci->Jumped = 0;
-	}
-	else if (tick <= bot.beforeJump + bot.jumpDuration + 1 + bot.cancelSpeed)
-	{
-		// Dodge
-		ci->Jump = 1;
-		ci->Jumped = 1;
-
-		double rads = bot.dodgeAngle * M_PI / 180;
-
-		ci->Steer = sin(rads);
-		ci->Yaw = ci->Steer;
-		ci->DodgeStrafe = ci->Steer;
-
-		ci->Pitch = -1 * cos(rads);
-		ci->DodgeForward = -1 * ci->Pitch;
-	}
-	else if (tick <= bot.beforeJump + bot.jumpDuration + 1 + bot.cancelSpeed + bot.beforeCancelAdjust)
-	{
-		// Cancel flip
-		ci->Jump = 0;
-		ci->Jumped = 0;
-
-		ci->Steer = 0;
-		ci->Yaw = ci->Steer;
-		ci->DodgeStrafe = ci->Steer;
-
-		ci->Pitch = 1;
-		ci->DodgeForward = -1;
-	}
-	else if (tick <= bot.beforeJump + bot.jumpDuration + 1 + bot.cancelSpeed + bot.beforeCancelAdjust + bot.adjustDuration)
-	{
-		ci->Steer = -1 * bot.adjustAmmount;
-		ci->Yaw = ci->Steer;
-		ci->DodgeStrafe = ci->Steer;
-
-		ci->Pitch = bot.adjustAmmount;
-		ci->DodgeForward = -1 * ci->Pitch;
-	}
-	else if (tick <= bot.beforeJump + bot.jumpDuration + 1 + bot.cancelSpeed + bot.beforeCancelAdjust + bot.adjustDuration + bot.airRollDuration)
-	{
-		ci->Steer = 0;
-		ci->Yaw = ci->Steer;
-		ci->DodgeStrafe = ci->Steer;
-
-		ci->Roll = -1;
-
-		ci->Pitch = 1;
-		ci->DodgeForward = -1 * ci->Pitch;
-	}
-	else if (tick > bot.beforeJump + bot.jumpDuration + 1 + bot.cancelSpeed + bot.beforeCancelAdjust + bot.adjustDuration + bot.airRollDuration)
-	{
-		ci->Roll = 0;
-
-		ci->Pitch = 0;
-		ci->DodgeForward = 0;
-	}
+	bot.Play(ci, tick);
 
 	gameWrapper->OverrideParams(ci, sizeof(ControllerInput));
 }
