@@ -186,6 +186,7 @@ void SpeedFlipTrainer::Render()
 	if (ImGui::Button("Enable manual mode"))
 	{
 		mode = SpeedFlipTrainerMode::Manual;
+		LOG("MODE = Manual");
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Save last attempt"))
@@ -198,28 +199,28 @@ void SpeedFlipTrainer::Render()
 	if (ImGui::Button("Replay last attempt"))
 	{
 		mode = SpeedFlipTrainerMode::Replay;
+		LOG("MODE = Replay");
 		replayAttempt = attempt;
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Load replay attempt"))
 	{
-		fileDialog.open = true;
-	}		
-	if (fileDialog.open && fileDialog.ShowFileDialog(ImGui::FileDialogType::SelectFile))
+		attemptFileDialog.open = true;
+	}
+	if (attemptFileDialog.open && attemptFileDialog.ShowFileDialog(ImGui::FileDialogType::SelectFile))
 	{
-		auto file = fileDialog.selected.string();
-		auto a = Attempt();
-
 		try 
 		{
-			a.ReadInputsFromFile(fileDialog.selected);
+			auto a = Attempt();
+			a.ReadInputsFromFile(attemptFileDialog.selected);
 			mode = SpeedFlipTrainerMode::Replay;
+			LOG("MODE = Replay");
 			replayAttempt = a;
-			LOG("Loaded attempt from file: {0}", file);
+			LOG("Loaded attempt from file: {0}", attemptFileDialog.selected.string());
 		}
 		catch (...)
 		{
-			LOG("Failed to read attempt from file: {0}", file);
+			LOG("Failed to read attempt from file: {0}", attemptFileDialog.selected.string());
 		}
 	}
 
@@ -227,12 +228,33 @@ void SpeedFlipTrainer::Render()
 	{
 		bot.Become26Bot();
 		mode = SpeedFlipTrainerMode::Bot;
+		LOG("MODE = Bot");
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Load -45 Bot"))
 	{
 		bot.Become45Bot();
 		mode = SpeedFlipTrainerMode::Bot;
+		LOG("MODE = Bot");
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Load Bot"))
+	{
+		botFileDialog.open = true;
+	}
+	if (botFileDialog.open && botFileDialog.ShowFileDialog(ImGui::FileDialogType::SelectFile))
+	{
+		try
+		{
+			bot.ReadInputsFromFile(botFileDialog.selected);
+			LOG("Loaded bot from file: {0}", botFileDialog.selected.string());
+			mode = SpeedFlipTrainerMode::Bot;
+			LOG("MODE = Bot");
+		}
+		catch (...)
+		{
+			LOG("Failed to read bot from file: {0}", botFileDialog.selected.string());
+		}
 	}
 
 	ImGui::End();

@@ -130,6 +130,7 @@ private:
 	virtual void OnClose() override;
 
 	filesystem::path dataDir;
-	ImGui::FileDialog fileDialog;
+	ImGui::FileDialog attemptFileDialog;
+	ImGui::FileDialog botFileDialog;
 };
 

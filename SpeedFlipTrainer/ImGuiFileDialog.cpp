@@ -7,11 +7,7 @@ bool ImGui::FileDialog::ShowFileDialog(FileDialogType type)
 		return false;
 
 	ImGui::SetNextWindowSize(ImVec2(740.0f, 410.0f));
-
-	if(type == FileDialogType::SelectFile)
-		ImGui::Begin("Select a file", nullptr, ImGuiWindowFlags_NoResize);
-	else
-		ImGui::Begin("Select a folder", nullptr, ImGuiWindowFlags_NoResize);
+	ImGui::Begin(name.c_str(), nullptr, ImGuiWindowFlags_NoResize);
 
 	vector<directory_entry> files;
 	vector<directory_entry> folders;

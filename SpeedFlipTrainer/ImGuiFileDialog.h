@@ -26,6 +26,7 @@ namespace ImGui {
 	class FileDialog {
 
 	public:
+		string name =  "Select File or Folder";
 		bool open = false;
 		filesystem::path workingDirectory;
 		filesystem::path selected;

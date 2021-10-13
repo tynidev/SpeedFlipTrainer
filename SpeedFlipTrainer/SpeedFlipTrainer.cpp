@@ -145,12 +145,12 @@ void SpeedFlipTrainer::Hook()
 		}
 	});
 
-	gameWrapper->HookEvent("Function TAGame.Car_TA.EventHitBall", 
+	gameWrapper->HookEvent("Function TAGame.Ball_TA.RecordCarHit",
 		[this](std::string eventname) {
 		if (!*enabled || !loaded || !gameWrapper->IsInCustomTraining() || attempt.hit || attempt.exploded)
 			return;
 
-		attempt.ticksToBall = gameWrapper->GetEngine().GetPhysicsFrame() - startingPhysicsFrame;
+		attempt.ticksToBall = gameWrapper->GetLocalCar().GetLastBallImpactFrame() - startingPhysicsFrame;
 		attempt.timeToBall = initialTime - gameWrapper->GetCurrentGameState().GetGameTimeRemaining();
 		attempt.hit = true;
 		LOG("Time to ball: {0:.3f}s after {1} tick", attempt.timeToBall, attempt.ticksToBall);
@@ -269,7 +269,16 @@ void SpeedFlipTrainer::onLoad()
 		dataDir = gameWrapper->GetDataFolder().append("speedflip");
 		if (!std::filesystem::exists(dataDir))
 			std::filesystem::create_directories(dataDir);
-		fileDialog.workingDirectory = dataDir;
+
+		attemptFileDialog.workingDirectory = dataDir / "attempts";
+		if (!std::filesystem::exists(attemptFileDialog.workingDirectory))
+			std::filesystem::create_directories(attemptFileDialog.workingDirectory);
+		attemptFileDialog.name = "Select replay attempt";
+
+		botFileDialog.workingDirectory = dataDir / "bots";
+		if (!std::filesystem::exists(botFileDialog.workingDirectory))
+			std::filesystem::create_directories(botFileDialog.workingDirectory);
+		botFileDialog.name = "Select bot file";
 	}
 
 }
@@ -282,7 +291,7 @@ void SpeedFlipTrainer::onUnload()
 
 	LOG("Unhooking");
 	gameWrapper->UnhookEvent("Function TAGame.Car_TA.SetVehicleInput");
-	gameWrapper->UnhookEvent("Function TAGame.Car_TA.EventHitBall");
+	gameWrapper->UnhookEvent("Function TAGame.Ball_TA.RecordCarHit");
 	gameWrapper->UnhookEvent("Function TAGame.Ball_TA.Explode");
 	gameWrapper->UnhookEventPost("Function Engine.Controller.Restart"); 
 	gameWrapper->UnregisterDrawables();
@@ -430,13 +439,13 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 	std::list<MeterMarking> markings;
 	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, (int)(halfMark - 15) });
 	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, (int)(halfMark - 10) });
+	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, (int)(halfMark + 5) });
 	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, (int)(halfMark + 10) });
-	markings.push_back({ (char)255, (char)255, (char)255, opacity, 3, (int)(halfMark + 15) });
 
 	std::list<MeterRange> ranges;
 	ranges.push_back({ (char)255, (char)255, (char)50, 0.2, (int)(halfMark - 15), (int)(halfMark - 10) });
-	ranges.push_back({ (char)50,(char)255, (char)50, 0.2, (int)(halfMark - 10), (int)(halfMark + 10) });
-	ranges.push_back({ (char)255,(char)255, (char)50, 0.2, (int)(halfMark + 10), (int)(halfMark + 15) });
+	ranges.push_back({ (char)50,(char)255, (char)50, 0.2, (int)(halfMark - 10), (int)(halfMark + 5) });
+	ranges.push_back({ (char)255,(char)255, (char)50, 0.2, (int)(halfMark + 5), (int)(halfMark + 10) });
 
 	if (attempt.jumped)
 	{
@@ -458,17 +467,17 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 		{
 			ranges.push_back({ (char)255, (char)255, (char)50, 1, (int)(halfMark - 15), (int)(halfMark - 10) });
 		}
+		else if (ticks < halfMark + 5)
+		{
+			ranges.push_back({ (char)50,(char)255, (char)50, 1, (int)(halfMark - 10), (int)(halfMark + 5) });
+		}
 		else if (ticks < halfMark + 10)
 		{
-			ranges.push_back({ (char)50,(char)255, (char)50, 1, (int)(halfMark - 10), (int)(halfMark + 10) });
-		}
-		else if (ticks < halfMark + 15)
-		{
-			ranges.push_back({ (char)255,(char)255, (char)50, 1, (int)(halfMark + 10), (int)(halfMark + 15) });
+			ranges.push_back({ (char)255,(char)255, (char)50, 1, (int)(halfMark + 5), (int)(halfMark + 10) });
 		}
 		else
 		{
-			ranges.push_back({ (char)255,(char)50, (char)50, 1, (int)(halfMark + 15), totalUnits });
+			ranges.push_back({ (char)255,(char)50, (char)50, 1, (int)(halfMark + 10), totalUnits });
 		}
 		markings.push_back({ (char)0, (char)0, (char)0, 0.6, (int)reqSize.Y / totalUnits, (int)ticks });
 	}
@@ -555,7 +564,7 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 	std::list<MeterRange> ranges;
 	std::list<MeterMarking> markings;
 
-	int greenRange = 7, yellowRange = 15;
+	int greenRange = 8, yellowRange = 15;
 	int lTarget = *optimalLeftAngle + 90;
 	int rTarget = *optimalRightAngle + 90;
 

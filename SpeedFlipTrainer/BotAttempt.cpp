@@ -4,31 +4,34 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+#include <sstream>
+#include <fstream>
+
 using namespace std;
 
 void BotAttempt::Become26Bot()
 {
-	dodgeAngle = -26;
-	initialSteer = 0.03;
 	beforeJump = 59;
+	initialSteer = 0.03;
 	jumpDuration = 11;
+	dodgeAngle = -26;
+	cancelSpeed = 5;
 	beforeCancelAdjust = 59;
 	adjustAmmount = 0.75;
 	adjustDuration = 16;
-	cancelSpeed = 5;
 	airRollDuration = 40;
 }
 
 void BotAttempt::Become45Bot()
 {
-	dodgeAngle = -45;
-	initialSteer = 0.1;
 	beforeJump = 59;
+	initialSteer = 0.1;
 	jumpDuration = 11;
+	dodgeAngle = -45;
+	cancelSpeed = 5;
 	beforeCancelAdjust = 59;
 	adjustAmmount = 0.7;
 	adjustDuration = 16;
-	cancelSpeed = 5;
 	airRollDuration = 40;
 }
 
@@ -116,7 +119,43 @@ void BotAttempt::Play(ControllerInput* ci, int tick)
 		ci->DodgeForward = 0;
 	}
 }
-void ReadInputsFromFile(std::filesystem::path filepath)
+void BotAttempt::ReadInputsFromFile(std::filesystem::path filepath)
 {
-	// TODO
+	ifstream is;
+	is.open(filepath, ios::in); 
+	
+	string line, word;
+
+	getline(is, line); // skip header line
+
+	while (getline(is, line))
+	{
+		stringstream s(line);
+		getline(s, word, ',');
+		beforeJump = stoi(word);
+
+		getline(s, word, ',');
+		initialSteer = stof(word);
+
+		getline(s, word, ',');
+		jumpDuration = stoi(word);
+
+		getline(s, word, ',');
+		dodgeAngle = stoi(word);
+
+		getline(s, word, ',');
+		cancelSpeed = stoi(word);
+
+		getline(s, word, ',');
+		beforeCancelAdjust = stoi(word);
+
+		getline(s, word, ',');
+		adjustAmmount = stof(word);
+
+		getline(s, word, ',');
+		adjustDuration = stoi(word);
+
+		getline(s, word, ',');
+		airRollDuration = stoi(word);
+	}
 }
