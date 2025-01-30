@@ -14,6 +14,22 @@ std::string SpeedFlipTrainer::GetPluginName() {
 void SpeedFlipTrainer::RenderSettings() {
 	ImGui::TextUnformatted("A plugin to help give training metrics when learning how to do a speedflip in Musty's training pack: A503-264C-A7EB-D282");
 
+	std::string command = "load_training A503-264C-A7EB-D282";
+	ImGui::Spacing();
+	if (ImGui::Button("Load Training Pack")) {
+		gameWrapper->Execute([this, command](GameWrapper* gw) {
+			cvarManager->executeCommand(command);
+		});
+	}
+	ImGui::SameLine(0, 30);
+	ImGui::TextUnformatted("Command for copying");
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Set to a binding, for example.");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 0.5f * command.size());
+	ImGui::InputText("", &command, ImGuiInputTextFlags_ReadOnly);
+	ImGui::Separator();
+
 	CVarWrapper enableCvar = cvarManager->getCvar("sf_enabled");
 	if (!enableCvar) return;
 
