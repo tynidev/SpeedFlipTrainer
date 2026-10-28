@@ -8,6 +8,9 @@
 
 #include "version.h"
 #include "Attempt.h"
+#include "UiTheme.h"
+#include <map>
+#include <vector>
 constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD);
 
 using namespace std;
@@ -35,6 +38,10 @@ private:
 	shared_ptr<bool> showPositionMeter = make_shared<bool>(true);
 	shared_ptr<bool> showFlipMeter = make_shared<bool>(true);
 	shared_ptr<bool> showJumpMeter = make_shared<bool>(true);
+	shared_ptr<bool> showInputTimeline = make_shared<bool>(false);
+	shared_ptr<bool> showStickPaths = make_shared<bool>(true);
+	shared_ptr<bool> showAttemptScorecard = make_shared<bool>(true);
+	shared_ptr<bool> showSuccessRatio = make_shared<bool>(true);
 
 	// Whether the speed should be changed on consecutive hits and misses
 	shared_ptr<bool> changeSpeed = make_shared<bool>(false);
@@ -78,8 +85,36 @@ private:
 
 	Attempt attempt;
 	Attempt replayAttempt;
+	// Frozen copy of the last finished attempt for the left input timeline
+	Attempt inputTimelineReview;
 
 	BotAttempt bot;
+
+	// Session stick patterns (cleared when leaving training)
+	struct StickTrailSnapshot
+	{
+		std::map<int, ControllerInput> inputs;
+		int firstJumpTick = -1;
+		int secondJumpTick = -1;
+		int cancelTick = -1;
+		int dodgedTick = -1;
+		int dodgeAngle = 0;
+		bool dodged = false;
+	};
+	std::vector<StickTrailSnapshot> successStickTrails;
+	std::vector<StickTrailSnapshot> greenFailStickTrails;
+	bool sessionAttemptFinalized = false;
+
+	// Training session success tracking (persisted across game launches)
+	struct SessionStats
+	{
+		std::string startedAt; // "YYYY-MM-DD HH:MM"
+		int validAttempts = 0; // jumped + dodged
+		int successes = 0;     // hit ball
+	};
+	SessionStats currentSession;
+	std::vector<SessionStats> sessionHistory;
+	bool trainingSessionActive = false;
 
 	// Consecutive hits and misses
 	int consecutiveHits = 0;
@@ -114,6 +149,44 @@ private:
 	void RenderFlipCancelMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
 	void RenderFirstJumpMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
 	void RenderPositionMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
+	void RenderInputTimeline(CanvasWrapper canvas, float screenWidth, float screenHeight);
+	void RenderStickPathBoxes(CanvasWrapper canvas, float screenWidth, float screenHeight);
+	void DrawStickBox(
+		CanvasWrapper canvas,
+		int left, int top, int size, int headerH, int pad,
+		const char* title,
+		bool live,
+		const std::vector<StickTrailSnapshot>* sessionTrails,
+		Ui::Rgb sessionColor,
+		unsigned char sessionAlpha,
+		const Attempt* current,
+		bool drawZones,
+		int markerRadius) const;
+	void RenderAttemptScorecard(CanvasWrapper canvas, float screenWidth, float screenHeight);
+	void RenderSuccessRatio(CanvasWrapper canvas, float screenWidth, float screenHeight);
+	void CaptureInputTimelineReview();
+	void ClearSessionStickPatterns();
+	bool IsMechanicsAllGreen(const Attempt& a) const;
+
+	void StartTrainingSession();
+	void EndTrainingSession();
+	void FinalizeAttemptForSession(const Attempt& a);
+	void LoadSessionHistory();
+	void SaveSessionHistory() const;
+	void SaveCurrentSessionCheckpoint() const;
+	void PromoteCurrentSessionCheckpoint();
+	std::filesystem::path SessionHistoryPath() const;
+	std::filesystem::path SessionCurrentPath() const;
+	static std::string FormatSessionTimestamp();
+	static float SessionRatio(const SessionStats& s);
+	const Attempt* GetInputTimelineSource() const;
+	void AnalyzeJumpEdges(const Attempt& src, int& firstJumpTick, int& secondJumpTick, int& cancelTick) const;
+
+	enum class CheckGrade { Good, Ok, Bad, Unknown };
+	CheckGrade GradeJumpTiming(const Attempt& a) const;
+	CheckGrade GradeDodgeAngle(const Attempt& a) const;
+	CheckGrade GradeCancelTiming(const Attempt& a) const;
+	CheckGrade GradeBoostThrottle(const Attempt& a) const;
 
 	// Inherited via PluginWindow
 	bool isWindowOpen_ = false;

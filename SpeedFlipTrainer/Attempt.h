@@ -39,6 +39,19 @@ public:
 	bool hit = false;
 	bool exploded = false;
 
+	// Confirmed hit: ball must move after touch, and must not explode within 100ms
+	int hitTick = -1;
+	int explodeTick = -1;
+	Vector ballPosAtHit = { 0, 0, 0 };
+	bool hasBallPosAtHit = false;
+	bool ballMovedAfterHit = false;
+	bool explodedWithin100msOfHit = false;
+
+	bool IsConfirmedBallHit() const
+	{
+		return hit && ballMovedAfterHit && !explodedWithin100msOfHit;
+	}
+
 	// Number of ticks not pressing boost or throttle
 	int ticksNotPressingBoost = 0;
 	int ticksNotPressingThrottle = 0;

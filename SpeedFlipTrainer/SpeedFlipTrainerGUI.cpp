@@ -26,17 +26,6 @@ void SpeedFlipTrainer::RenderSettings() {
 
 	// ------------------------ ANGLE ----------------------------------
 	ImGui::Separator();
-	{
-		CVarWrapper cvar = cvarManager->getCvar("sf_show_angle");
-		if (!cvar) return;
-
-		bool value = cvar.getBoolValue();
-
-		if (ImGui::Checkbox("Show dodge angle", &value))
-			cvar.setValue(value);
-		if (ImGui::IsItemHovered())
-			ImGui::SetTooltip("Show meter for the dodge angle.");
-	}
 
 	CVarWrapper leftAngleCvar = cvarManager->getCvar("sf_left_angle");
 	if (!leftAngleCvar) return;
@@ -130,6 +119,105 @@ void SpeedFlipTrainer::RenderSettings() {
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("Show meter for the horizontal position.");
 	}
+
+	// ------------------------ STICK / SCORECARD ----------------------------------
+	ImGui::Separator();
+	{
+		CVarWrapper cvar = cvarManager->getCvar("sf_show_stick_paths");
+		if (!cvar) return;
+
+		bool value = cvar.getBoolValue();
+
+		if (ImGui::Checkbox("Show stick path boxes", &value))
+			cvar.setValue(value);
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Show dodge stick trail with jump/cancel markers.");
+	}
+	{
+		CVarWrapper cvar = cvarManager->getCvar("sf_show_scorecard");
+		if (!cvar) return;
+
+		bool value = cvar.getBoolValue();
+
+		if (ImGui::Checkbox("Show attempt scorecard", &value))
+			cvar.setValue(value);
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Horizontal green/yellow/red recap after each attempt.");
+	}
+	{
+		CVarWrapper cvar = cvarManager->getCvar("sf_show_ratio");
+		if (!cvar) return;
+
+		bool value = cvar.getBoolValue();
+
+		if (ImGui::Checkbox("Show success ratio", &value))
+			cvar.setValue(value);
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Live hits/valid attempts this pack session (valid = jumped and dodged).");
+	}
+
+	// ------------------------ SESSION HISTORY ----------------------------------
+	ImGui::Separator();
+	ImGui::TextUnformatted("Training session history");
+	ImGui::TextWrapped("Sessions start when you load Musty's pack and save when you leave (or if the game closes mid-session). Only attempts with a jump and dodge count.");
+
+	if (trainingSessionActive)
+	{
+		const float pct = SessionRatio(currentSession);
+		ImGui::Text("Current: %d / %d  (%.1f%%)", currentSession.successes, currentSession.validAttempts, pct);
+	}
+	else
+	{
+		ImGui::TextDisabled("Not in a training session");
+	}
+
+	ImGui::Text("Goal: 99%% success");
+	if (!sessionHistory.empty())
+	{
+		const auto& last = sessionHistory.back();
+		ImGui::Text("Last saved: %s  %d/%d  (%.1f%%)",
+			last.startedAt.c_str(), last.successes, last.validAttempts, SessionRatio(last));
+	}
+
+	if (ImGui::BeginChild("sf_session_history", ImVec2(0, 180), true))
+	{
+		if (sessionHistory.empty())
+		{
+			ImGui::TextDisabled("No saved sessions yet.");
+		}
+		else
+		{
+			ImGui::Columns(4, "sf_hist_cols");
+			ImGui::Text("Started"); ImGui::NextColumn();
+			ImGui::Text("Hits"); ImGui::NextColumn();
+			ImGui::Text("Valid"); ImGui::NextColumn();
+			ImGui::Text("Ratio"); ImGui::NextColumn();
+			ImGui::Separator();
+
+			for (int i = (int)sessionHistory.size() - 1; i >= 0; --i)
+			{
+				const auto& s = sessionHistory[i];
+				const float pct = SessionRatio(s);
+				ImGui::TextUnformatted(s.startedAt.c_str()); ImGui::NextColumn();
+				ImGui::Text("%d", s.successes); ImGui::NextColumn();
+				ImGui::Text("%d", s.validAttempts); ImGui::NextColumn();
+				ImVec4 col = pct >= 99.f
+					? ImVec4(0.25f, 0.9f, 0.4f, 1.f)
+					: (pct >= 70.f ? ImVec4(1.f, 0.8f, 0.2f, 1.f) : ImVec4(0.95f, 0.3f, 0.3f, 1.f));
+				ImGui::TextColored(col, "%.1f%%", pct); ImGui::NextColumn();
+			}
+			ImGui::Columns(1);
+		}
+	}
+	ImGui::EndChild();
+
+	if (ImGui::Button("Clear session history"))
+	{
+		sessionHistory.clear();
+		SaveSessionHistory();
+	}
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Deletes saved session history file (not the current live session).");
 
 	// ------------------------ SPEED SETTINGS ----------------------------------
 	ImGui::Separator();
